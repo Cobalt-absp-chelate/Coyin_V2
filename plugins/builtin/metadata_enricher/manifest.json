@@ -1,0 +1,11 @@
+{
+  "plugin_id": "metadata_enricher",
+  "name": "DOI / arXiv / Crossref 元数据补全",
+  "version": "0.1.0",
+  "author": "Coyin",
+  "description": "在导入后尝试根据标题或摘要信息提示可补全的 DOI 与来源信息。",
+  "builtin": true,
+  "default_enabled": false,
+  "capabilities": ["document.import"],
+  "config_schema": {}
+}

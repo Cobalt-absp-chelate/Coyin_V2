@@ -1,0 +1,11 @@
+{
+  "plugin_id": "glossary_guard",
+  "name": "术语表 / 缩写一致性",
+  "version": "0.1.0",
+  "author": "Coyin",
+  "description": "检查分析结果和写作稿中的术语、缩写写法是否稳定一致。",
+  "builtin": true,
+  "default_enabled": false,
+  "capabilities": ["analysis.postprocess", "writer.actions"],
+  "config_schema": {}
+}

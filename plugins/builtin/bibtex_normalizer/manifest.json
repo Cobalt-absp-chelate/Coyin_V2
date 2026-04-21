@@ -1,0 +1,16 @@
+{
+  "plugin_id": "bibtex_normalizer",
+  "name": "引文元数据修复与 BibTeX 规范化",
+  "version": "0.1.0",
+  "author": "Coyin",
+  "description": "对 BibTeX 条目做基础字段顺序整理，并为分析结果补充引用整理建议。",
+  "builtin": true,
+  "default_enabled": false,
+  "capabilities": ["analysis.postprocess", "command.register"],
+  "config_schema": {
+    "preserve_case": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

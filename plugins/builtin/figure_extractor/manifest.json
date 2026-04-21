@@ -1,0 +1,11 @@
+{
+  "plugin_id": "figure_extractor",
+  "name": "文献图表提取",
+  "version": "0.1.0",
+  "author": "Coyin",
+  "description": "从文档文本中识别图表引用痕迹，帮助快速定位重点结果。",
+  "builtin": true,
+  "default_enabled": false,
+  "capabilities": ["analysis.postprocess"],
+  "config_schema": {}
+}

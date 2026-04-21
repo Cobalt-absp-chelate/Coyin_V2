@@ -1,0 +1,11 @@
+{
+  "plugin_id": "writer_plus",
+  "name": "写作工具栏增强",
+  "version": "0.1.0",
+  "author": "Coyin",
+  "description": "为写作窗口增加快速插入引用说明、方法框架提示和审稿备注动作。",
+  "builtin": true,
+  "default_enabled": false,
+  "capabilities": ["writer.actions"],
+  "config_schema": {}
+}
