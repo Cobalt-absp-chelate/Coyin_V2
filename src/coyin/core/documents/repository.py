@@ -5,6 +5,7 @@ from pathlib import Path
 from coyin.core.common import now_iso, short_id
 from coyin.core.documents.adapters import DocumentAdapterRegistry
 from coyin.core.documents.models import DocumentDescriptor, DocumentKind, DocumentSnapshot
+from coyin.core.tasks import TaskToken
 
 
 class DocumentRepository:
@@ -23,7 +24,7 @@ class DocumentRepository:
         stamp = path.stat().st_mtime_ns if path.exists() else 0
         return descriptor.document_id, mode, stamp
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         cache_key = self._cache_key(descriptor, "full")
         if descriptor.kind == DocumentKind.PDF.value:
             cached = self._snapshot_cache.get(cache_key)
@@ -32,12 +33,12 @@ class DocumentRepository:
         adapter = self.registry.for_path(Path(descriptor.path))
         if not adapter:
             return DocumentSnapshot(document_id=descriptor.document_id, raw_text="", blocks=[])
-        snapshot = adapter.load_snapshot(descriptor)
+        snapshot = adapter.load_snapshot(descriptor, task_token=task_token)
         if descriptor.kind == DocumentKind.PDF.value:
             self._snapshot_cache[cache_key] = snapshot
         return snapshot
 
-    def load_reader_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_reader_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         cache_key = self._cache_key(descriptor, "reader")
         if descriptor.kind == DocumentKind.PDF.value:
             cached = self._snapshot_cache.get(cache_key)
@@ -46,7 +47,7 @@ class DocumentRepository:
         adapter = self.registry.for_path(Path(descriptor.path))
         if not adapter:
             return DocumentSnapshot(document_id=descriptor.document_id, raw_text="", blocks=[])
-        snapshot = adapter.load_reader_snapshot(descriptor)
+        snapshot = adapter.load_reader_snapshot(descriptor, task_token=task_token)
         if descriptor.kind == DocumentKind.PDF.value:
             self._snapshot_cache[cache_key] = snapshot
         return snapshot

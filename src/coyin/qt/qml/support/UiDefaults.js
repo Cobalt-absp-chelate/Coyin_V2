@@ -1,6 +1,18 @@
 .pragma library
 
-function theme() {
+function _loadJson(relativePath) {
+    try {
+        var xhr = new XMLHttpRequest()
+        xhr.open("GET", Qt.resolvedUrl(relativePath), false)
+        xhr.send()
+        if ((xhr.status === 0 || xhr.status === 200) && xhr.responseText)
+            return JSON.parse(xhr.responseText)
+    } catch (error) {
+    }
+    return null
+}
+
+function _defaultTheme() {
     return {
         mode: "light",
         background: "#e7ebf0",
@@ -31,8 +43,42 @@ function theme() {
         warning: "#8b6c3d",
         danger: "#8c5656",
         note: "#efe6d4",
-        shadow: "#10243712"
+        shadow: "#10243712",
+        motionProfile: "measured",
+        radiusSmall: 4,
+        radiusMedium: 6,
+        radiusLarge: 8,
+        durationImmediate: 72,
+        durationFast: 110,
+        durationNormal: 170,
+        durationSlow: 220,
+        durationPanel: 190,
+        durationPage: 210,
+        hoverShift: -0.45,
+        pressShift: 0.65,
+        cardHoverShift: -0.8,
+        cardPressShift: 0.45,
+        pageOffset: 10,
+        disabledOpacity: 0.72
     }
+}
+
+function _defaultShellSchema() {
+    return {
+        primaryPages: [
+            { page_id: "home", title: "工作台", short: "工" },
+            { page_id: "library", title: "资料库", short: "库" },
+            { page_id: "search", title: "搜索", short: "搜" },
+            { page_id: "analysis", title: "分析", short: "析" }
+        ],
+        utilityPages: [
+            { page_id: "settings", title: "设置" }
+        ]
+    }
+}
+
+function theme() {
+    return _loadJson("../../../../assets/config/themes/light.json") || _defaultTheme()
 }
 
 function safeTheme(value) {
@@ -48,22 +94,19 @@ function safeTheme(value) {
 }
 
 function shellPageEntries() {
-    return [
-        { page_id: "home", title: "工作台", short: "工" },
-        { page_id: "library", title: "资料库", short: "库" },
-        { page_id: "search", title: "搜索", short: "搜" },
-        { page_id: "analysis", title: "分析", short: "析" }
-    ]
+    var schema = _loadJson("../../../../assets/config/shell_schema.json") || _defaultShellSchema()
+    return schema.primaryPages || _defaultShellSchema().primaryPages
 }
 
 function shellState() {
+    var schema = _loadJson("../../../../assets/config/shell_schema.json") || _defaultShellSchema()
     return {
         currentTitle: "工作台",
         currentSubtitle: "",
         currentPage: "home",
         currentIndex: 0,
         primaryPageEntries: shellPageEntries(),
-        utilityPageEntries: [{ page_id: "settings", title: "设置" }]
+        utilityPageEntries: schema.utilityPages || _defaultShellSchema().utilityPages
     }
 }
 

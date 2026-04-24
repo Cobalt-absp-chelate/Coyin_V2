@@ -1,5 +1,6 @@
 import QtQuick
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
 Rectangle {
     id: root
@@ -8,9 +9,10 @@ Rectangle {
     property string detail: ""
     property string tone: "neutral"
     property var theme: UiDefaults.theme()
+    readonly property color baseColor: tone === "accent" ? theme.accentPanel : theme.panelInset
 
     radius: 6
-    color: tone === "accent" ? theme.accentPanel : theme.panelInset
+    color: MotionCore.mixColor(baseColor, theme.accentSurface, tone === "accent" ? 0.06 : 0.02)
     border.color: tone === "accent" ? theme.accentOutline : theme.border
     border.width: 1
     implicitHeight: Math.max(98, tileColumn.implicitHeight + 28)
@@ -24,7 +26,7 @@ Rectangle {
         Rectangle {
             width: 28
             height: 3
-            color: tone === "accent" ? theme.anchor : theme.borderStrong
+            color: tone === "accent" ? theme.anchor : MotionCore.mixColor(theme.borderStrong, theme.anchor, 0.18)
         }
 
         Text {
@@ -42,7 +44,7 @@ Rectangle {
 
         Text {
             text: root.detail
-            color: theme.textSoft
+            color: tone === "accent" ? MotionCore.mixColor(theme.textSoft, theme.textMuted, 0.18) : theme.textSoft
             font.pixelSize: 11
             width: parent.width
             wrapMode: Text.Wrap

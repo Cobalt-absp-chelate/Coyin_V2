@@ -8,7 +8,7 @@ from typing import Any
 from PySide6.QtCore import QObject, Signal
 
 from coyin.core.common import now_iso
-from coyin.native.bridge import load_task_contracts
+from coyin.config import task_contracts as load_task_contracts
 
 
 class TaskPhase(StrEnum):

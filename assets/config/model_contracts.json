@@ -1,0 +1,289 @@
+{
+  "homePath": {
+    "roles": [
+      "path_id",
+      "title",
+      "caption",
+      "detail",
+      "badge",
+      "page_id",
+      "action_id",
+      "action_label",
+      "mark",
+      "tone"
+    ],
+    "primaryKey": "path_id",
+    "sort": [
+      {
+        "field": "title",
+        "order": "asc"
+      }
+    ]
+  },
+  "homeMetric": {
+    "roles": [
+      "metric_id",
+      "label",
+      "value",
+      "detail",
+      "tone"
+    ],
+    "primaryKey": "metric_id",
+    "sort": [
+      {
+        "field": "metric_id",
+        "order": "asc"
+      }
+    ]
+  },
+  "library": {
+    "roles": [
+      "document_id",
+      "display_title",
+      "kind",
+      "kind_label",
+      "authors",
+      "year",
+      "source",
+      "source_label",
+      "group_id",
+      "group_color",
+      "progress",
+      "excerpt",
+      "annotation_count",
+      "metadata_summary",
+      "favorite",
+      "last_opened",
+      "status_line"
+    ],
+    "primaryKey": "document_id",
+    "sort": [
+      {
+        "field": "favorite",
+        "order": "desc"
+      },
+      {
+        "field": "last_opened",
+        "order": "desc"
+      },
+      {
+        "field": "year",
+        "order": "desc"
+      },
+      {
+        "field": "display_title",
+        "order": "asc"
+      }
+    ],
+    "emptyTitle": "当前资料视图",
+    "emptySummary": "当前筛选下无结果。"
+  },
+  "searchSource": {
+    "roles": [
+      "source_id",
+      "label",
+      "result_count",
+      "available_count",
+      "summary"
+    ],
+    "primaryKey": "source_id",
+    "sort": [
+      {
+        "field": "label",
+        "order": "asc"
+      }
+    ]
+  },
+  "searchResult": {
+    "roles": [
+      "result_id",
+      "title",
+      "authors",
+      "year",
+      "item_type",
+      "abstract_text",
+      "source_id",
+      "source_label",
+      "landing_url",
+      "pdf_url",
+      "venue",
+      "doi",
+      "has_pdf",
+      "meta_summary",
+      "status_line"
+    ],
+    "primaryKey": "result_id",
+    "sort": [
+      {
+        "field": "has_pdf",
+        "order": "desc"
+      },
+      {
+        "field": "year",
+        "order": "desc"
+      },
+      {
+        "field": "title",
+        "order": "asc"
+      }
+    ],
+    "emptyTitle": "结果状态",
+    "emptySummary": "暂无检索结果。"
+  },
+  "analysisHistory": {
+    "roles": [
+      "report_id",
+      "document_id",
+      "title",
+      "created_at",
+      "summary",
+      "reading_note",
+      "latex_snippet",
+      "field_count",
+      "experiment_count",
+      "comparison_count",
+      "status_line"
+    ],
+    "primaryKey": "report_id",
+    "sort": [
+      {
+        "field": "created_at",
+        "order": "desc"
+      }
+    ]
+  },
+  "plugin": {
+    "roles": [
+      "plugin_id",
+      "name",
+      "version",
+      "author",
+      "description",
+      "builtin",
+      "plugin_enabled",
+      "default_enabled",
+      "capabilities",
+      "load_error",
+      "state_label"
+    ],
+    "primaryKey": "plugin_id",
+    "sort": [
+      {
+        "field": "plugin_enabled",
+        "order": "desc"
+      },
+      {
+        "field": "builtin",
+        "order": "desc"
+      },
+      {
+        "field": "name",
+        "order": "asc"
+      }
+    ]
+  },
+  "group": {
+    "roles": [
+      "group_id",
+      "name",
+      "group_color",
+      "document_count",
+      "summary"
+    ],
+    "primaryKey": "group_id",
+    "sort": [
+      {
+        "field": "document_count",
+        "order": "desc"
+      }
+    ]
+  },
+  "kindOption": {
+    "roles": [
+      "kind_id",
+      "label",
+      "count"
+    ],
+    "primaryKey": "kind_id",
+    "sort": [
+      {
+        "field": "label",
+        "order": "asc"
+      }
+    ]
+  },
+  "recentNote": {
+    "roles": [
+      "note_id",
+      "title",
+      "content",
+      "created_at",
+      "status_line"
+    ],
+    "primaryKey": "note_id",
+    "sort": [
+      {
+        "field": "created_at",
+        "order": "desc"
+      }
+    ]
+  },
+  "recentSearch": {
+    "roles": [
+      "label"
+    ],
+    "primaryKey": "label"
+  },
+  "recentLatex": {
+    "roles": [
+      "session_id",
+      "title",
+      "template",
+      "path",
+      "updated_at",
+      "status_line"
+    ],
+    "primaryKey": "session_id",
+    "sort": [
+      {
+        "field": "updated_at",
+        "order": "desc"
+      }
+    ]
+  },
+  "provider": {
+    "roles": [
+      "provider_id",
+      "name",
+      "base_url",
+      "api_key",
+      "default_model",
+      "analysis_model",
+      "active",
+      "state_label"
+    ],
+    "primaryKey": "provider_id",
+    "sort": [
+      {
+        "field": "name",
+        "order": "asc"
+      }
+    ]
+  },
+  "settingsSummary": {
+    "roles": [
+      "entry_id",
+      "title",
+      "value",
+      "detail",
+      "state"
+    ],
+    "primaryKey": "entry_id",
+    "sort": [
+      {
+        "field": "title",
+        "order": "asc"
+      }
+    ]
+  }
+}

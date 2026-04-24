@@ -1,11 +1,14 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Coyin.Chrome 1.0
 import "../components"
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
-ScrollView {
+Item {
     id: root
     property var controller: null
     property var theme: UiDefaults.safeTheme(UiDefaults.theme())
@@ -16,8 +19,7 @@ ScrollView {
     readonly property var recentSearches: controller ? controller.recentSearchModel : null
     readonly property var searchTask: controller ? controller.searchTaskState : ({ phase: "idle", summary: "输入关键词后检索。", loading: false })
     readonly property var searchState: controller ? controller.searchWorkspaceState : ({ query: "", result_count: 0, pdf_count: 0, source_count: 0, latest_year: "" })
-
-    contentWidth: availableWidth
+    readonly property int resultCount: results ? results.count : 0
 
     Component.onCompleted: {
         if (root.selectedSources.length === 0) {
@@ -32,7 +34,7 @@ ScrollView {
     }
 
     ColumnLayout {
-        width: root.availableWidth
+        anchors.fill: parent
         spacing: 18
 
         Rectangle {
@@ -74,7 +76,7 @@ ScrollView {
                             }
 
                             Text {
-                                text: "把主搜索框、来源切换、任务状态和结果工作区收束成一条清晰的检索路径。"
+                                text: "统一检索入口。"
                                 color: root.theme.textMuted
                                 font.pixelSize: 12
                                 wrapMode: Text.Wrap
@@ -136,7 +138,7 @@ ScrollView {
                             spacing: 10
 
                             Text {
-                                text: "当前检索脉络"
+                                text: "检索概况"
                                 color: root.theme.anchor
                                 font.pixelSize: 14
                                 font.weight: Font.DemiBold
@@ -174,19 +176,32 @@ ScrollView {
 
                         Repeater {
                             model: root.searchSources
-                            delegate: InteractiveChip {
+
+                            delegate: Item {
+                                required property string source_id
+                                required property string label
+                                required property int result_count
+
                                 property bool checkedSource: root.selectedSources.indexOf(source_id) >= 0
-                                theme: root.theme
-                                text: label + "  " + result_count
-                                checked: checkedSource
-                                onClicked: {
-                                    var next = root.selectedSources.slice()
-                                    var idx = next.indexOf(source_id)
-                                    if (idx >= 0)
-                                        next.splice(idx, 1)
-                                    else
-                                        next.push(source_id)
-                                    root.selectedSources = next
+                                readonly property string sourceLabel: label || ""
+                                implicitWidth: chip.implicitWidth
+                                implicitHeight: chip.implicitHeight
+
+                                InteractiveChip {
+                                    id: chip
+                                    anchors.fill: parent
+                                    theme: root.theme
+                                    text: parent.sourceLabel + "  " + result_count
+                                    checked: parent.checkedSource
+                                    onClicked: {
+                                        var next = root.selectedSources.slice()
+                                        var idx = next.indexOf(source_id)
+                                        if (idx >= 0)
+                                            next.splice(idx, 1)
+                                        else
+                                            next.push(source_id)
+                                        root.selectedSources = next
+                                    }
                                 }
                             }
                         }
@@ -197,105 +212,162 @@ ScrollView {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             spacing: 18
 
             Rectangle {
                 Layout.preferredWidth: 300
                 Layout.maximumWidth: 300
+                Layout.fillHeight: true
                 radius: 6
                 color: root.theme.panelRaised
                 border.color: root.theme.border
                 border.width: 1
-                implicitHeight: searchRailColumn.implicitHeight + 28
 
-                Column {
-                    id: searchRailColumn
+                ScrollView {
+                    id: sideRail
                     anchors.fill: parent
                     anchors.margins: 14
-                    spacing: 12
+                    clip: true
+                    ScrollBar.vertical: AutoHideScrollBar { theme: root.theme }
 
-                    Text {
-                        text: "搜索侧轨"
-                        color: root.theme.text
-                        font.pixelSize: 15
-                        font.weight: Font.DemiBold
-                    }
+                    Column {
+                        id: searchRailColumn
+                        width: sideRail.availableWidth
+                        spacing: 12
 
-                    Repeater {
-                        model: root.searchSources
-                        delegate: Rectangle {
+                        Text {
+                            text: "来源"
+                            color: root.theme.text
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                        }
+
+                        ListView {
                             width: parent.width
-                            height: 42
-                            radius: 4
-                            color: root.theme.panelInset
-                            border.color: root.theme.border
-                            border.width: 1
+                            height: contentHeight
+                            implicitHeight: contentHeight
+                            interactive: false
+                            clip: true
+                            spacing: 8
+                            reuseItems: true
+                            model: root.searchSources
 
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: label + "  " + result_count
-                                color: root.theme.text
-                            }
+                            delegate: Rectangle {
+                                required property string label
+                                required property int result_count
+                                required property string summary
 
-                            Text {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: summary
-                                color: root.theme.textSoft
-                                font.pixelSize: 11
+                                width: ListView.view.width
+                                height: 42
+                                radius: 4
+                                color: root.theme.panelInset
+                                border.color: root.theme.border
+                                border.width: 1
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: label + "  " + result_count
+                                    color: root.theme.text
+                                }
+
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: summary
+                                    color: root.theme.textSoft
+                                    font.pixelSize: 11
+                                }
                             }
                         }
-                    }
 
-                    Text {
-                        text: "最近搜索"
-                        color: root.theme.textMuted
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                    }
+                        Text {
+                            text: "最近搜索"
+                            color: root.theme.textMuted
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                        }
 
-                    Repeater {
-                        model: root.recentSearches
-                        delegate: Rectangle {
+                        ListView {
                             width: parent.width
-                            height: 34
-                            radius: 4
-                            color: root.theme.panelInset
-                            border.color: root.theme.border
-                            border.width: 1
+                            height: contentHeight
+                            implicitHeight: contentHeight
+                            interactive: false
+                            clip: true
+                            spacing: 8
+                            reuseItems: true
+                            model: root.recentSearches
 
-                            Text {
-                                anchors.fill: parent
-                                anchors.margins: 10
-                                text: label
-                                color: root.theme.textMuted
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                            }
+                            delegate: Rectangle {
+                                required property string label
 
-                            SignalAccent {
-                                anchors.fill: parent
-                                active: false
-                                hovered: recentSearchHover.containsMouse
-                                pressed: recentSearchHover.pressed
-                                accentColor: root.theme.anchor
-                                neutralColor: root.theme.accentSoft
-                                edge: "frame"
-                                radius: 4
-                            }
+                                width: ListView.view.width
+                                height: 34
+                                radius: root.theme.radiusSmall
+                                color: MotionCore.mixColor(root.theme.panelInset, root.theme.accentSurface, recentSearchInteraction.frameStrength * 0.16)
+                                border.color: MotionCore.mixColor(root.theme.border, root.theme.accentOutline, recentSearchInteraction.frameStrength * 0.68 + recentSearchInteraction.settleStrength * 0.18)
+                                border.width: 1
 
-                            MouseArea {
-                                id: recentSearchHover
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    searchField.text = label
-                                    if (root.controller)
-                                        root.controller.runRecentSearch(label)
+                                Behavior on color {
+                                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                }
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                }
+
+                                InteractionState {
+                                    id: recentSearchInteraction
+                                    enabledInput: root.enabled
+                                    visibleInput: root.visible
+                                    hoveredInput: recentSearchHover.hovered
+                                    pressedInput: recentSearchTap.active
+                                    focusedInput: false
+                                    busyInput: false
+                                    selectedInput: false
+                                }
+
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    text: label
+                                    color: MotionCore.mixColor(root.theme.textMuted, root.theme.text, recentSearchInteraction.textStrength * 0.90 + recentSearchInteraction.settleStrength * 0.10)
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+
+                                    Behavior on color {
+                                        ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                    }
+                                }
+
+                                SignalAccent {
+                                    anchors.fill: parent
+                                    active: recentSearchInteraction.settleStrength > 0.12
+                                    hovered: recentSearchInteraction.hovered
+                                    pressed: recentSearchInteraction.pressed
+                                    accentColor: root.theme.anchor
+                                    neutralColor: root.theme.accentSoft
+                                    edge: "frame"
+                                    radius: 4
+                                }
+
+                                HoverHandler {
+                                    id: recentSearchHover
+                                    enabled: root.visible
+                                    cursorShape: Qt.PointingHandCursor
+                                }
+
+                                TapHandler {
+                                    id: recentSearchTap
+                                    enabled: root.visible
+                                    onTapped: {
+                                        searchField.text = label
+                                        if (root.controller)
+                                            root.controller.runRecentSearch(label)
+                                    }
                                 }
                             }
                         }
@@ -305,24 +377,23 @@ ScrollView {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 radius: 6
                 color: root.theme.panelRaised
                 border.color: root.theme.border
                 border.width: 1
-                implicitHeight: resultsColumn.implicitHeight + 28
 
-                Column {
-                    id: resultsColumn
+                ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 14
                     spacing: 12
 
                     Row {
-                        width: parent.width
+                        Layout.fillWidth: true
                         spacing: 8
 
                         Text {
-                            text: root.searchState.query ? ("结果工作区  ·  " + root.searchState.query) : "结果工作区"
+                            text: root.searchState.query ? ("结果  ·  " + root.searchState.query) : "结果"
                             color: root.theme.text
                             font.pixelSize: 15
                             font.weight: Font.DemiBold
@@ -337,54 +408,91 @@ ScrollView {
                     }
 
                     Text {
+                        Layout.fillWidth: true
                         visible: !!root.searchTask.detail && (root.searchTask.phase === "error" || root.searchTask.phase === "empty")
                         text: root.searchTask.detail || ""
                         color: root.theme.textSoft
                         font.pixelSize: 11
                         wrapMode: Text.Wrap
-                        width: parent.width
                     }
 
                     Rectangle {
-                        visible: !root.results || root.results.count === 0
-                        width: parent.width
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        visible: root.resultCount === 0
                         radius: 6
                         color: root.theme.panelInset
                         border.color: root.theme.border
                         border.width: 1
-                        implicitHeight: 120
 
                         Column {
                             anchors.centerIn: parent
                             spacing: 8
 
                             Text { text: root.searchTask.summary || "暂无检索结果"; color: root.theme.text; font.pixelSize: 14; font.weight: Font.DemiBold; horizontalAlignment: Text.AlignHCenter }
-                            Text { text: root.searchTask.detail || "主搜索区发起检索后，结果会集中出现在这里。"; color: root.theme.textSoft; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter }
+                            Text { text: root.searchTask.detail || "检索后在此显示结果。"; color: root.theme.textSoft; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter }
                         }
                     }
 
-                    Repeater {
+                    ListView {
+                        id: resultsList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        visible: root.resultCount > 0
+                        clip: true
+                        spacing: 12
+                        reuseItems: true
+                        cacheBuffer: 1400
                         model: root.results
-                        delegate: SearchResultCard {
-                            width: parent.width
-                            itemData: ({
-                                "result_id": result_id,
-                                "title": title,
-                                "authors": authors,
-                                "year": year,
-                                "item_type": item_type,
-                                "abstract_text": abstract_text,
-                                "source_label": source_label,
-                                "landing_url": landing_url,
-                                "pdf_url": pdf_url,
-                                "venue": venue,
-                                "doi": doi,
-                                "has_pdf": has_pdf,
-                                "meta_summary": meta_summary,
-                                "status_line": status_line
-                            })
-                            controller: root.controller
-                            theme: root.theme
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: AutoHideScrollBar { theme: root.theme }
+
+                        delegate: Item {
+                            required property string result_id
+                            required property string title
+                            required property string authors
+                            required property string year
+                            required property string item_type
+                            required property string abstract_text
+                            required property string source_label
+                            required property var landing_url
+                            required property var pdf_url
+                            required property var venue
+                            required property var doi
+                            required property bool has_pdf
+                            required property string meta_summary
+                            required property string status_line
+
+                            width: ListView.view.width
+                            height: card.implicitHeight
+
+                            SearchResultCard {
+                                id: card
+                                width: parent.width
+                                itemData: ({
+                                    "result_id": result_id,
+                                    "title": title,
+                                    "authors": authors,
+                                    "year": year,
+                                    "item_type": item_type,
+                                    "abstract_text": abstract_text,
+                                    "source_label": source_label,
+                                    "landing_url": landing_url,
+                                    "pdf_url": pdf_url,
+                                    "venue": venue,
+                                    "doi": doi,
+                                    "has_pdf": has_pdf,
+                                    "meta_summary": meta_summary,
+                                    "status_line": status_line
+                                })
+                                controller: root.controller
+                                theme: root.theme
+                            }
+                        }
+
+                        footer: Item {
+                            width: 1
+                            height: 8
                         }
                     }
                 }

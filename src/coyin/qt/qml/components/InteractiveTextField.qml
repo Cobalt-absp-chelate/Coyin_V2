@@ -16,6 +16,17 @@ TextField {
     font.pixelSize: 12
     selectByMouse: true
 
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: hoverHandler.hovered
+        pressedInput: false
+        focusedInput: root.activeFocus
+        busyInput: root.busy
+        selectedInput: root.selected
+    }
+
     background: Rectangle {
         radius: MotionCore.tokens().radiusSmall
         color: root.enabled ? root.theme.panelInset : root.theme.panel
@@ -25,8 +36,8 @@ TextField {
 
         SignalAccent {
             anchors.fill: parent
-            active: root.activeFocus || root.selected || root.busy
-            hovered: hover.containsMouse
+            active: interaction.active
+            hovered: interaction.hovered
             pressed: false
             accentColor: root.theme.anchor
             neutralColor: root.theme.accentSoft
@@ -34,11 +45,9 @@ TextField {
             radius: MotionCore.tokens().radiusSmall
         }
 
-        MouseArea {
-            id: hover
-            anchors.fill: parent
-            acceptedButtons: Qt.NoButton
-            hoverEnabled: true
+        HoverHandler {
+            id: hoverHandler
+            enabled: root.enabled && root.visible
         }
     }
 }

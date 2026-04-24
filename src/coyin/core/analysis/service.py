@@ -129,9 +129,10 @@ class AnalysisService:
         method_steps = self._extract_candidates(text, [r"method", r"framework", r"pipeline", r"方法"], limit=5)
         experiments = self._extract_metrics(text)
         reading_note = f"1. 先通读摘要与引言。\n2. 重点核对方法与实验设置。\n3. 与本地同主题论文做对照。\n\n{summary}"
+        escaped_summary = summary.replace("%", "\\%")
         latex_snippet = (
             "\\subsection{文献综述条目}\n"
-            f"{descriptor.title} 主要讨论了以下内容：{summary.replace('%', '\\%')}\n"
+            f"{descriptor.title} 主要讨论了以下内容：{escaped_summary}\n"
         )
         comparison_rows = [
             {"维度": "研究问题", "内容": descriptor.metadata.get("subject", "") or "待与本地文献对照"},
@@ -143,7 +144,7 @@ class AnalysisService:
             contributions=contributions,
             experiments=experiments,
             method_steps=method_steps,
-            risks=risks or ["建议结合原文实验设置复核潜在局限。"],
+            risks=risks or ["局限待结合原文复核。"],
             comparison_rows=comparison_rows,
             reading_note=reading_note,
             latex_snippet=latex_snippet,
@@ -174,4 +175,4 @@ class AnalysisService:
             rows.append({"label": label, "value": value})
             if len(rows) >= 6:
                 break
-        return rows or [{"label": "实验结果", "value": "建议结合原文表格进一步核对"}]
+        return rows or [{"label": "实验结果", "value": "待结合原文表格核对"}]

@@ -1,7 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import sys
+
+
+def app_root() -> Path:
+    bundle_root = getattr(sys, "_MEIPASS", "")
+    if bundle_root:
+        return Path(bundle_root)
+    return Path(__file__).resolve().parents[2]
+
+
+def user_data_root() -> Path:
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))
+    return base / "Coyin"
 
 
 @dataclass(frozen=True)
@@ -20,8 +37,8 @@ class AppPaths:
 
     @classmethod
     def discover(cls) -> "AppPaths":
-        root = Path(__file__).resolve().parents[2]
-        runtime = root / "runtime"
+        root = app_root()
+        runtime = user_data_root() if getattr(sys, "frozen", False) else root / "runtime"
         drafts = runtime / "drafts"
         exports = runtime / "exports"
         downloads = runtime / "downloads"

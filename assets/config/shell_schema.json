@@ -1,0 +1,30 @@
+{
+  "primaryPages": [
+    {
+      "page_id": "home",
+      "title": "工作台",
+      "short": "工"
+    },
+    {
+      "page_id": "library",
+      "title": "资料库",
+      "short": "库"
+    },
+    {
+      "page_id": "search",
+      "title": "搜索",
+      "short": "搜"
+    },
+    {
+      "page_id": "analysis",
+      "title": "分析",
+      "short": "析"
+    }
+  ],
+  "utilityPages": [
+    {
+      "page_id": "settings",
+      "title": "设置"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "search": {
+    "title": "论文检索",
+    "hint": "搜索结果、导入资料库和后续分析会继续汇入同一任务管线。",
+    "phases": {
+      "idle": "输入关键词后检索。",
+      "loading": "正在检索论文来源…",
+      "refreshing": "正在刷新检索结果…",
+      "ready": "检索完成。",
+      "empty": "未找到匹配结果。",
+      "error": "检索失败。"
+    }
+  },
+  "analysis": {
+    "title": "结构化分析",
+    "hint": "分析、导出、转写作和 LaTeX 路径会继续沿用这一任务状态。",
+    "phases": {
+      "idle": "选择文档后开始分析。",
+      "loading": "正在生成结构化分析…",
+      "refreshing": "正在刷新分析报告…",
+      "ready": "分析完成。",
+      "empty": "当前没有可展示的分析结果。",
+      "error": "分析失败。"
+    }
+  },
+  "export": {
+    "title": "导出任务",
+    "hint": "写作导出、LaTeX 导出和其他外部产出会继续并入统一导出管线。",
+    "phases": {
+      "idle": "等待导出。",
+      "loading": "正在导出…",
+      "refreshing": "正在刷新导出结果…",
+      "ready": "导出完成。",
+      "empty": "当前没有可导出的内容。",
+      "error": "导出失败。"
+    }
+  },
+  "latex_compile": {
+    "title": "LaTeX 编译",
+    "hint": "编译状态、错误摘要和导出路径都会继续复用这一任务状态。",
+    "phases": {
+      "idle": "模板已载入，准备编译。",
+      "loading": "正在编译 LaTeX…",
+      "refreshing": "正在重新编译 LaTeX…",
+      "ready": "编译完成。",
+      "empty": "当前没有编译结果。",
+      "error": "编译失败。"
+    }
+  }
+}

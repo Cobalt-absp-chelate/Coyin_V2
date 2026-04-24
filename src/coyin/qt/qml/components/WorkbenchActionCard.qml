@@ -17,112 +17,194 @@ Control {
     signal triggered
 
     readonly property bool accentTone: tone === "accent"
+    readonly property var motion: MotionCore.tokens(root.theme)
+    readonly property color fillColor: MotionCore.mixColor(MotionCore.cardFill(theme, root.accentTone, root.enabled, interaction.hovered, interaction.pressed, false), theme.accentSurface, interaction.accentStrength * (root.accentTone ? 0.12 : 0.18))
+    readonly property color borderColor: MotionCore.mixColor(MotionCore.cardBorder(theme, root.accentTone, root.enabled, interaction.hovered, interaction.pressed, false), theme.anchor, interaction.frameStrength * 0.28)
+    readonly property real surfaceScale: MotionCore.surfaceScale(interaction.hoverProgress, interaction.focusProgress, interaction.pressProgress, interaction.settleStrength, true)
 
-    hoverEnabled: true
+    hoverEnabled: enabled && visible
     focusPolicy: Qt.TabFocus
-    implicitHeight: Math.max(116, contentColumn.implicitHeight + 28)
+    leftPadding: 16
+    rightPadding: 16
+    topPadding: 14
+    bottomPadding: 14
+    implicitHeight: Math.max(140, contentColumn.implicitHeight + 28)
+
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: hoverHandler.hovered
+        pressedInput: triggerHandler.active
+        focusedInput: root.activeFocus
+        busyInput: false
+        selectedInput: false
+    }
 
     background: Rectangle {
-        radius: MotionCore.tokens().radiusMedium
-        color: root.accentTone ? theme.accentPanel : theme.panelRaised
-        border.color: root.accentTone ? theme.accentOutline : theme.border
+        radius: root.motion.radiusMedium
+        color: root.fillColor
+        border.color: root.borderColor
         border.width: 1
-        opacity: root.enabled ? 1.0 : 0.7
+        opacity: root.enabled ? 1.0 : root.motion.disabledOpacity
+        scale: root.surfaceScale
+        transformOrigin: Item.Center
+
+        Behavior on color {
+            ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+        }
+
+        Behavior on border.color {
+            ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+        }
+
+        Behavior on scale {
+            NumberAnimation { duration: MotionCore.duration("panel", root.theme); easing.type: Easing.OutCubic }
+        }
 
         SignalAccent {
             anchors.fill: parent
-            active: root.activeFocus
-            hovered: pressArea.containsMouse
-            pressed: pressArea.pressed
+            active: interaction.active
+            hovered: interaction.hovered
+            pressed: interaction.pressed
             accentColor: theme.anchor
             neutralColor: theme.accentSoft
             edge: "frame"
-            radius: MotionCore.tokens().radiusMedium
+            radius: root.motion.radiusMedium
         }
     }
 
-    contentItem: Column {
-        id: contentColumn
-        spacing: 10
-        leftPadding: 16
-        rightPadding: 16
-        topPadding: 14
-        bottomPadding: 14
+    contentItem: Item {
+        implicitWidth: contentColumn.implicitWidth
+        implicitHeight: contentColumn.implicitHeight
+        scale: root.surfaceScale
+        transformOrigin: Item.Center
 
-        Row {
+        transform: Translate {
+            y: MotionCore.weightedShift(interaction.hoverProgress, interaction.focusProgress, interaction.pressProgress, root.theme, true)
+
+            Behavior on y {
+                NumberAnimation { duration: MotionCore.duration("fast", root.theme); easing.type: Easing.OutCubic }
+            }
+        }
+
+        Behavior on scale {
+            NumberAnimation { duration: MotionCore.duration("panel", root.theme); easing.type: Easing.OutCubic }
+        }
+
+        Column {
+            id: contentColumn
             width: parent.width
-            spacing: 8
+            spacing: 10
 
-            Rectangle {
-                width: 40
-                height: 24
-                radius: MotionCore.tokens().radiusSmall
-                color: root.accentTone ? theme.anchor : theme.accentSurface
-                border.color: root.accentTone ? theme.accentOutline : theme.accentOutline
-                border.width: 1
+            Row {
+                id: chromeRow
+                width: parent.width
+                spacing: 8
 
-                Text {
-                    anchors.centerIn: parent
-                    text: root.mark
-                    color: root.accentTone ? theme.panelRaised : theme.anchor
-                    font.family: "Microsoft YaHei UI"
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
+                Rectangle {
+                    width: 40
+                    height: 24
+                    radius: root.motion.radiusSmall
+                    color: root.accentTone
+                        ? MotionCore.mixColor(theme.accentOutline, theme.anchor, 0.72 + interaction.settleStrength * 0.28)
+                        : MotionCore.mixColor(theme.accentSurface, theme.panelFocus, interaction.accentStrength * 0.55)
+                    border.color: theme.accentOutline
+                    border.width: 1
+
+                    Behavior on color {
+                        ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.mark
+                        color: root.accentTone ? theme.panelRaised : theme.anchor
+                        font.family: "Microsoft YaHei UI"
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                    }
+                }
+
+                InfoPill {
+                    visible: root.badge.length > 0
+                    text: root.badge
+                    fillColor: root.accentTone ? theme.panelRaised : theme.panelInset
+                    borderColor: root.accentTone ? theme.accentOutline : theme.border
+                    textColor: root.accentTone ? theme.anchor : theme.textMuted
                 }
             }
 
-            InfoPill {
-                visible: root.badge.length > 0
-                text: root.badge
-                fillColor: root.accentTone ? theme.panelRaised : theme.panelInset
-                borderColor: root.accentTone ? theme.accentOutline : theme.border
-                textColor: root.accentTone ? theme.anchor : theme.textMuted
+            Text {
+                id: headingText
+                text: root.heading
+                color: root.accentTone ? theme.anchor : theme.text
+                font.family: "Microsoft YaHei UI"
+                font.pixelSize: 15
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+                width: parent.width
+                opacity: root.enabled ? 1.0 : root.motion.disabledOpacity
+
+                Behavior on color {
+                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                }
             }
-        }
 
-        Text {
-            text: root.heading
-            color: root.accentTone ? theme.anchor : theme.text
-            font.family: "Microsoft YaHei UI"
-            font.pixelSize: 15
-            font.weight: Font.DemiBold
-            elide: Text.ElideRight
-            width: parent.width
-            opacity: root.enabled ? 1.0 : 0.72
-        }
+            Text {
+                id: detailText
+                text: root.detail
+                visible: text.length > 0
+                color: theme.textMuted
+                font.family: "Microsoft YaHei UI"
+                font.pixelSize: 11
+                width: parent.width
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+            }
 
-        Text {
-            text: root.detail
-            visible: text.length > 0
-            color: theme.textMuted
-            font.family: "Microsoft YaHei UI"
-            font.pixelSize: 11
-            width: parent.width
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
-        }
+            Row {
+                id: actionRow
+                width: parent.width
+                spacing: 6
+                visible: root.actionLabel.length > 0
 
-        Text {
-            text: root.actionLabel
-            visible: text.length > 0
-            color: root.accentTone ? theme.anchor : theme.textSoft
-            font.family: "Microsoft YaHei UI"
-            font.pixelSize: 11
-            font.weight: Font.Medium
-            width: parent.width
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
+                Text {
+                    text: root.actionLabel
+                    color: MotionCore.mixColor(root.accentTone ? theme.anchor : theme.textSoft, theme.anchor, interaction.textStrength * 0.50)
+                    font.family: "Microsoft YaHei UI"
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+
+                    Behavior on color {
+                        ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                    }
+                }
+
+                Text {
+                    text: "›"
+                    color: MotionCore.mixColor(root.accentTone ? theme.anchor : theme.textSoft, theme.anchor, interaction.textStrength * 0.50)
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+
+                    Behavior on color {
+                        ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                    }
+                }
+            }
         }
     }
 
-    MouseArea {
-        id: pressArea
-        anchors.fill: parent
-        hoverEnabled: true
-        enabled: root.enabled
-        cursorShape: root.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: root.triggered()
+    HoverHandler {
+        id: hoverHandler
+        enabled: root.enabled && root.visible
+        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+    }
+
+    TapHandler {
+        id: triggerHandler
+        enabled: root.enabled && root.visible
+        onTapped: root.triggered()
     }
 }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from coyin.native.bridge import load_theme
+from coyin.config import theme_tokens as load_theme_tokens
 
 
 @dataclass(frozen=True)
@@ -38,112 +38,47 @@ class ThemePalette:
     shadow: str
 
 
-LIGHT = ThemePalette(
-    background="#e7ebf0",
-    workspace="#f1f4f8",
-    workspace_tint="#e8eef5",
-    chrome="#f7f9fb",
-    chrome_alt="#e9eef4",
-    panel="#fbfcfe",
-    panel_alt="#f3f6fa",
-    panel_raised="#ffffff",
-    panel_inset="#ecf1f6",
-    panel_hover="#eef4fa",
-    panel_focus="#e4edf7",
-    text="#122033",
-    text_muted="#4c5d70",
-    text_soft="#708195",
-    border="#d5dde8",
-    border_strong="#b9c6d8",
-    accent="#1f5a84",
-    anchor="#164e74",
-    accent_hover="#2d6b98",
-    accent_soft="#dbe8f3",
-    accent_surface="#edf4fa",
-    accent_panel="#e4edf7",
-    accent_outline="#88a6c1",
-    selection="#e9dfc9",
-    success="#506d5e",
-    warning="#8b6c3d",
-    danger="#8c5656",
-    note="#efe6d4",
-    shadow="#10243712",
-)
-
-DARK = ThemePalette(
-    background="#10161d",
-    workspace="#141b24",
-    workspace_tint="#182231",
-    chrome="#18212b",
-    chrome_alt="#1f2a36",
-    panel="#1c2530",
-    panel_alt="#243040",
-    panel_raised="#202b37",
-    panel_inset="#16202a",
-    panel_hover="#283649",
-    panel_focus="#314156",
-    text="#eef3f8",
-    text_muted="#a7b4c1",
-    text_soft="#7f8e9d",
-    border="#304254",
-    border_strong="#486078",
-    accent="#7ba8d0",
-    anchor="#8eb9de",
-    accent_hover="#93badb",
-    accent_soft="#203044",
-    accent_surface="#1d2c3c",
-    accent_panel="#24384b",
-    accent_outline="#5f84a7",
-    selection="#5a4b34",
-    success="#6d8e7b",
-    warning="#b48d59",
-    danger="#bb7c7c",
-    note="#4a3f30",
-    shadow="#00000040",
-)
+def _palette_from_tokens(mode: str) -> ThemePalette:
+    payload = load_theme_tokens(mode)
+    return ThemePalette(
+        background=str(payload["background"]),
+        workspace=str(payload["workspace"]),
+        workspace_tint=str(payload["workspaceTint"]),
+        chrome=str(payload["chrome"]),
+        chrome_alt=str(payload["chromeAlt"]),
+        panel=str(payload["panel"]),
+        panel_alt=str(payload["panelAlt"]),
+        panel_raised=str(payload["panelRaised"]),
+        panel_inset=str(payload["panelInset"]),
+        panel_hover=str(payload["panelHover"]),
+        panel_focus=str(payload["panelFocus"]),
+        text=str(payload["text"]),
+        text_muted=str(payload["textMuted"]),
+        text_soft=str(payload["textSoft"]),
+        border=str(payload["border"]),
+        border_strong=str(payload["borderStrong"]),
+        accent=str(payload["accent"]),
+        anchor=str(payload["anchor"]),
+        accent_hover=str(payload["accentHover"]),
+        accent_soft=str(payload["accentSoft"]),
+        accent_surface=str(payload["accentSurface"]),
+        accent_panel=str(payload["accentPanel"]),
+        accent_outline=str(payload["accentOutline"]),
+        selection=str(payload["selection"]),
+        success=str(payload["success"]),
+        warning=str(payload["warning"]),
+        danger=str(payload["danger"]),
+        note=str(payload["note"]),
+        shadow=str(payload["shadow"]),
+    )
 
 
 def palette_for(mode: str) -> ThemePalette:
-    return DARK if mode == "dark" else LIGHT
+    return _palette_from_tokens(mode)
 
 
 def qml_tokens(mode: str) -> dict[str, str]:
-    native = load_theme(mode)
-    if native:
-        return native
-    palette = palette_for(mode)
-    return {
-        "background": palette.background,
-        "workspace": palette.workspace,
-        "workspaceTint": palette.workspace_tint,
-        "chrome": palette.chrome,
-        "chromeAlt": palette.chrome_alt,
-        "panel": palette.panel,
-        "panelAlt": palette.panel_alt,
-        "panelRaised": palette.panel_raised,
-        "panelInset": palette.panel_inset,
-        "panelHover": palette.panel_hover,
-        "panelFocus": palette.panel_focus,
-        "text": palette.text,
-        "textMuted": palette.text_muted,
-        "textSoft": palette.text_soft,
-        "border": palette.border,
-        "borderStrong": palette.border_strong,
-        "accent": palette.accent,
-        "anchor": palette.anchor,
-        "accentHover": palette.accent_hover,
-        "accentSoft": palette.accent_soft,
-        "accentSurface": palette.accent_surface,
-        "accentPanel": palette.accent_panel,
-        "accentOutline": palette.accent_outline,
-        "selection": palette.selection,
-        "success": palette.success,
-        "warning": palette.warning,
-        "danger": palette.danger,
-        "note": palette.note,
-        "shadow": palette.shadow,
-        "mode": mode,
-    }
+    return load_theme_tokens(mode)
 
 
 def base_stylesheet(mode: str) -> str:
@@ -247,5 +182,37 @@ def base_stylesheet(mode: str) -> str:
     }}
     QSplitter::handle {{
         background: {palette.chrome_alt};
+    }}
+    QScrollBar:vertical {{
+        background: transparent;
+        width: 12px;
+        margin: 2px;
+        border: none;
+    }}
+    QScrollBar:horizontal {{
+        background: transparent;
+        height: 12px;
+        margin: 2px;
+        border: none;
+    }}
+    QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
+        background: {palette.anchor};
+        border-radius: 3px;
+        min-height: 34px;
+        min-width: 34px;
+    }}
+    QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{
+        background: {palette.accent_hover};
+    }}
+    QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{
+        background: transparent;
+        border: none;
+    }}
+    QToolTip {{
+        background: {palette.panel_raised};
+        color: {palette.text};
+        border: 1px solid {palette.accent_outline};
+        padding: 8px 10px;
+        border-radius: 6px;
     }}
     """

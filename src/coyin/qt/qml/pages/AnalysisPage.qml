@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Coyin.Chrome 1.0
 import "../components"
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
 ScrollView {
     id: root
@@ -18,8 +19,17 @@ ScrollView {
     readonly property bool stackedHeader: root.availableWidth < 1380
     readonly property bool stackedBody: root.availableWidth < 1450
     readonly property bool compactSections: root.availableWidth < 1120
+    readonly property int historyVisibleCount: Math.min(root.analysisHistory ? root.analysisHistory.count : 0, 6)
+    readonly property int contributionCount: (root.currentAnalysis.contributions || []).length
+    readonly property int methodCount: (root.currentAnalysis.method_steps || []).length
+    readonly property int experimentCount: (root.currentAnalysis.experiments || []).length
+    readonly property int comparisonCount: (root.currentAnalysis.comparison_items || []).length
+    readonly property int riskCount: (root.currentAnalysis.risks || []).length
+    readonly property int fieldItemCount: (root.currentAnalysis.field_items || []).length
 
     contentWidth: availableWidth
+    ScrollBar.vertical: AutoHideScrollBar { theme: root.theme }
+    ScrollBar.horizontal: AutoHideScrollBar { theme: root.theme }
 
     ColumnLayout {
         width: root.availableWidth
@@ -61,7 +71,7 @@ ScrollView {
                             }
 
                             Text {
-                                text: root.currentAnalysis.title || "分析报告工作区"
+                                text: root.currentAnalysis.title || "分析"
                                 color: root.theme.text
                                 font.pixelSize: 22
                                 font.weight: Font.DemiBold
@@ -69,7 +79,7 @@ ScrollView {
 
                             Text {
                                 width: parent.width
-                                text: root.currentAnalysis.summary || "这里承接分析发起、历史报告、结构化内容、补充字段和导出路径。"
+                                text: root.currentAnalysis.summary || "暂无分析结果。"
                                 color: root.theme.textMuted
                                 font.pixelSize: 12
                                 wrapMode: Text.Wrap
@@ -94,7 +104,7 @@ ScrollView {
                             spacing: 10
 
                             Text {
-                                text: "当前分析脉络"
+                                text: "分析概况"
                                 color: root.theme.anchor
                                 font.pixelSize: 14
                                 font.weight: Font.DemiBold
@@ -180,7 +190,7 @@ ScrollView {
                         spacing: 10
 
                         Text { text: "发起分析"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
-                        Text { text: "从资料流中选择文档后直接进入统一分析任务。"; color: root.theme.textSoft; font.pixelSize: 11; width: parent.width; wrapMode: Text.Wrap }
+                        Text { text: "选择文档后开始。"; color: root.theme.textSoft; font.pixelSize: 11; width: parent.width; wrapMode: Text.Wrap }
 
                         ComboBox {
                             id: documentPicker
@@ -216,16 +226,45 @@ ScrollView {
 
                         Text { text: "分析历史"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
 
-                        Repeater {
-                            model: root.analysisHistory
+                        ListView {
+                            width: parent.width
+                            height: contentHeight
+                            implicitHeight: contentHeight
+                            interactive: false
+                            spacing: 10
+                            clip: true
+                            reuseItems: true
+                            model: root.historyVisibleCount
+
                             delegate: Rectangle {
-                                visible: index < 6
-                                width: parent.width
-                                radius: 4
-                                color: report_id === root.currentAnalysis.report_id ? root.theme.accentPanel : root.theme.panelInset
-                                border.color: report_id === root.currentAnalysis.report_id ? root.theme.accentOutline : root.theme.border
+                                required property int index
+                                readonly property var entry: root.analysisHistory ? root.analysisHistory.record(index) : ({})
+                                readonly property bool current: entry.report_id === root.currentAnalysis.report_id
+                                width: ListView.view.width
+                                radius: root.theme.radiusSmall
+                                color: MotionCore.mixColor(current ? root.theme.accentPanel : root.theme.panelInset, root.theme.accentSurface, historyInteraction.frameStrength * 0.14 + historyInteraction.settleStrength * 0.08)
+                                border.color: MotionCore.mixColor(current ? root.theme.accentOutline : root.theme.border, root.theme.anchor, historyInteraction.frameStrength * 0.48 + historyInteraction.settleStrength * 0.18)
                                 border.width: 1
                                 implicitHeight: historyItemColumn.implicitHeight + 20
+
+                                Behavior on color {
+                                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                }
+
+                                Behavior on border.color {
+                                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                }
+
+                                InteractionState {
+                                    id: historyInteraction
+                                    enabledInput: root.enabled
+                                    visibleInput: root.visible
+                                    hoveredInput: historyHover.hovered
+                                    pressedInput: historyTap.active
+                                    focusedInput: false
+                                    busyInput: false
+                                    selectedInput: current
+                                }
 
                                 Column {
                                     id: historyItemColumn
@@ -233,35 +272,49 @@ ScrollView {
                                     anchors.margins: 10
                                     spacing: 4
 
-                                    Text { text: title; color: report_id === root.currentAnalysis.report_id ? root.theme.anchor : root.theme.text; width: parent.width; elide: Text.ElideRight; font.weight: Font.DemiBold }
-                                    Text { text: created_at; color: root.theme.textSoft; width: parent.width; elide: Text.ElideRight; font.pixelSize: 11 }
-                                    Text { text: status_line; color: root.theme.textMuted; width: parent.width; elide: Text.ElideRight; font.pixelSize: 11 }
-                                    Text { text: summary; color: root.theme.textMuted; width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; font.pixelSize: 11 }
+                                    Text {
+                                        text: entry.title || ""
+                                        color: MotionCore.mixColor(current ? root.theme.anchor : root.theme.text, root.theme.anchor, historyInteraction.textStrength * 0.18)
+                                        width: parent.width
+                                        elide: Text.ElideRight
+                                        font.weight: Font.DemiBold
+
+                                        Behavior on color {
+                                            ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                                        }
+                                    }
+                                    Text { text: entry.created_at || ""; color: root.theme.textSoft; width: parent.width; elide: Text.ElideRight; font.pixelSize: 11 }
+                                    Text { text: entry.status_line || ""; color: root.theme.textMuted; width: parent.width; elide: Text.ElideRight; font.pixelSize: 11 }
+                                    Text { text: entry.summary || ""; color: root.theme.textMuted; width: parent.width; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; font.pixelSize: 11 }
                                 }
 
                                 SignalAccent {
                                     anchors.fill: parent
-                                    active: report_id === root.currentAnalysis.report_id
-                                    hovered: historyHover.containsMouse
-                                    pressed: historyHover.pressed
+                                    active: historyInteraction.settleStrength > 0.16
+                                    hovered: historyInteraction.hovered
+                                    pressed: historyInteraction.pressed
                                     accentColor: root.theme.anchor
                                     neutralColor: root.theme.accentSoft
                                     edge: "frame"
-                                    radius: 4
+                                    radius: root.theme.radiusSmall
                                 }
 
-                                MouseArea {
+                                HoverHandler {
                                     id: historyHover
-                                    anchors.fill: parent
-                                    hoverEnabled: true
+                                    enabled: root.visible
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: if (root.controller) root.controller.focusAnalysis(report_id)
+                                }
+
+                                TapHandler {
+                                    id: historyTap
+                                    enabled: root.visible
+                                    onTapped: if (root.controller && entry.report_id) root.controller.focusAnalysis(entry.report_id)
                                 }
                             }
                         }
 
                         Text {
-                            visible: !root.analysisHistory || root.analysisHistory.count === 0
+                            visible: root.historyVisibleCount === 0
                             text: "暂无分析记录"
                             color: root.theme.textSoft
                         }
@@ -285,7 +338,7 @@ ScrollView {
                     spacing: 14
 
                     Text {
-                        text: "报告结构区"
+                        text: "报告"
                         color: root.theme.text
                         font.pixelSize: 16
                         font.weight: Font.DemiBold
@@ -303,7 +356,7 @@ ScrollView {
                             id: summaryText
                             anchors.fill: parent
                             anchors.margins: 12
-                            text: root.currentAnalysis.summary || "暂无分析结果。生成分析后，结构化摘要会作为报告主开场出现在这里。"
+                            text: root.currentAnalysis.summary || "暂无分析结果。"
                             color: root.theme.text
                             wrapMode: Text.Wrap
                         }
@@ -330,19 +383,27 @@ ScrollView {
                                 anchors.margins: 12
                                 spacing: 8
 
-                                Text { text: "贡献点提炼"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                Repeater {
+                                Text { text: "贡献"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                ListView {
+                                    width: parent.width
+                                    height: contentHeight
+                                    implicitHeight: contentHeight
+                                    interactive: false
+                                    clip: true
+                                    spacing: 8
+                                    reuseItems: true
                                     model: root.currentAnalysis.contributions || []
+
                                     delegate: Text {
-                                        width: parent.width
+                                        width: ListView.view.width
                                         text: "• " + modelData
                                         color: root.theme.text
                                         wrapMode: Text.Wrap
                                     }
                                 }
                                 Text {
-                                    visible: (root.currentAnalysis.contributions || []).length === 0
-                                    text: "当前报告暂无贡献点。"
+                                    visible: root.contributionCount === 0
+                                    text: "暂无贡献。"
                                     color: root.theme.textSoft
                                     font.pixelSize: 11
                                 }
@@ -363,19 +424,27 @@ ScrollView {
                                 anchors.margins: 12
                                 spacing: 8
 
-                                Text { text: "方法流程"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                Repeater {
+                                Text { text: "方法"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                ListView {
+                                    width: parent.width
+                                    height: contentHeight
+                                    implicitHeight: contentHeight
+                                    interactive: false
+                                    clip: true
+                                    spacing: 8
+                                    reuseItems: true
                                     model: root.currentAnalysis.method_steps || []
+
                                     delegate: Text {
-                                        width: parent.width
+                                        width: ListView.view.width
                                         text: (index + 1) + ". " + modelData
                                         color: root.theme.text
                                         wrapMode: Text.Wrap
                                     }
                                 }
                                 Text {
-                                    visible: (root.currentAnalysis.method_steps || []).length === 0
-                                    text: "当前报告暂无方法流程。"
+                                    visible: root.methodCount === 0
+                                    text: "暂无方法。"
                                     color: root.theme.textSoft
                                     font.pixelSize: 11
                                 }
@@ -396,11 +465,19 @@ ScrollView {
                                 anchors.margins: 12
                                 spacing: 8
 
-                                Text { text: "实验信息"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                Repeater {
+                                Text { text: "实验"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                ListView {
+                                    width: parent.width
+                                    height: contentHeight
+                                    implicitHeight: contentHeight
+                                    interactive: false
+                                    clip: true
+                                    spacing: 8
+                                    reuseItems: true
                                     model: root.currentAnalysis.experiments || []
+
                                     delegate: Rectangle {
-                                        width: parent.width
+                                        width: ListView.view.width
                                         radius: 4
                                         color: root.theme.panelRaised
                                         border.color: root.theme.border
@@ -418,8 +495,8 @@ ScrollView {
                                     }
                                 }
                                 Text {
-                                    visible: (root.currentAnalysis.experiments || []).length === 0
-                                    text: "当前报告暂无实验条目。"
+                                    visible: root.experimentCount === 0
+                                    text: "暂无实验。"
                                     color: root.theme.textSoft
                                     font.pixelSize: 11
                                 }
@@ -440,11 +517,19 @@ ScrollView {
                                 anchors.margins: 12
                                 spacing: 8
 
-                                Text { text: "比较结构"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                Repeater {
+                                Text { text: "比较"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                ListView {
+                                    width: parent.width
+                                    height: contentHeight
+                                    implicitHeight: contentHeight
+                                    interactive: false
+                                    clip: true
+                                    spacing: 8
+                                    reuseItems: true
                                     model: root.currentAnalysis.comparison_items || []
+
                                     delegate: Rectangle {
-                                        width: parent.width
+                                        width: ListView.view.width
                                         radius: 4
                                         color: root.theme.panelRaised
                                         border.color: root.theme.border
@@ -462,8 +547,8 @@ ScrollView {
                                     }
                                 }
                                 Text {
-                                    visible: (root.currentAnalysis.comparison_items || []).length === 0
-                                    text: "当前报告暂无比较结构。"
+                                    visible: root.comparisonCount === 0
+                                    text: "暂无比较。"
                                     color: root.theme.textSoft
                                     font.pixelSize: 11
                                 }
@@ -485,19 +570,27 @@ ScrollView {
                             anchors.margins: 12
                             spacing: 8
 
-                            Text { text: "局限与风险"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
-                            Repeater {
+                            Text { text: "风险"; color: root.theme.anchor; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            ListView {
+                                width: parent.width
+                                height: contentHeight
+                                implicitHeight: contentHeight
+                                interactive: false
+                                clip: true
+                                spacing: 8
+                                reuseItems: true
                                 model: root.currentAnalysis.risks || []
+
                                 delegate: Text {
-                                    width: parent.width
+                                    width: ListView.view.width
                                     text: "• " + modelData
                                     color: root.theme.text
                                     wrapMode: Text.Wrap
                                 }
                             }
                             Text {
-                                visible: (root.currentAnalysis.risks || []).length === 0
-                                text: "当前报告暂无风险说明。"
+                                visible: root.riskCount === 0
+                                text: "暂无风险说明。"
                                 color: root.theme.textSoft
                                 font.pixelSize: 11
                             }
@@ -527,12 +620,20 @@ ScrollView {
                         anchors.margins: 14
                         spacing: 10
 
-                        Text { text: "补充字段区"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
+                        Text { text: "补充字段"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
 
-                        Repeater {
+                        ListView {
+                            width: parent.width
+                            height: contentHeight
+                            implicitHeight: contentHeight
+                            interactive: false
+                            clip: true
+                            spacing: 8
+                            reuseItems: true
                             model: root.currentAnalysis.field_items || []
+
                             delegate: Rectangle {
-                                width: parent.width
+                                width: ListView.view.width
                                 radius: 4
                                 color: root.theme.panelInset
                                 border.color: root.theme.border
@@ -551,8 +652,8 @@ ScrollView {
                         }
 
                         Text {
-                            visible: (root.currentAnalysis.field_items || []).length === 0
-                            text: "当前报告暂无补充字段。"
+                            visible: root.fieldItemCount === 0
+                            text: "暂无补充字段。"
                             color: root.theme.textSoft
                         }
                     }
@@ -572,7 +673,7 @@ ScrollView {
                         anchors.margins: 14
                         spacing: 10
 
-                        Text { text: "输出路径"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
+                        Text { text: "输出"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
 
                         Rectangle {
                             width: parent.width
@@ -586,7 +687,7 @@ ScrollView {
                                 id: readingNoteText
                                 anchors.fill: parent
                                 anchors.margins: 10
-                                text: root.currentAnalysis.reading_note || "阅读笔记会在这里汇总，便于继续转研究笔记。"
+                                text: root.currentAnalysis.reading_note || "暂无阅读笔记。"
                                 color: root.theme.textMuted
                                 wrapMode: Text.Wrap
                             }

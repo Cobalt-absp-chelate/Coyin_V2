@@ -3,35 +3,58 @@ import QtQuick.Controls
 import Coyin.Chrome 1.0
 import "."
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
 Rectangle {
     id: root
     property var itemData: ({})
     property var controller: null
     property var theme: UiDefaults.safeTheme(UiDefaults.theme())
+    readonly property var motion: MotionCore.tokens(root.theme)
 
-    radius: 6
-    color: theme.panelRaised
-    border.color: theme.border
+    radius: motion.radiusMedium
+    color: root.enabled
+           ? MotionCore.mixColor(theme.panelRaised, MotionCore.mixColor(theme.panelHover, theme.accentSurface, 0.24 + interaction.settleStrength * 0.14), interaction.frameStrength)
+           : theme.panel
+    border.color: root.enabled
+                  ? MotionCore.mixColor(theme.border, theme.accentOutline, interaction.frameStrength * 0.76 + interaction.settleStrength * 0.18)
+                  : theme.border
     border.width: 1
     implicitHeight: Math.max(infoColumn.implicitHeight, actions.implicitHeight) + 28
 
+    Behavior on color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
+
+    Behavior on border.color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
+
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: hoverHandler.hovered
+        pressedInput: false
+        focusedInput: false
+        busyInput: false
+        selectedInput: false
+    }
+
     SignalAccent {
         anchors.fill: parent
-        active: false
-        hovered: hover.containsMouse
-        pressed: false
+        active: interaction.accentStrength > 0.18
+        hovered: interaction.hovered
+        pressed: interaction.pressed
         accentColor: theme.anchor
         neutralColor: theme.accentSoft
         edge: "frame"
-        radius: 6
+        radius: motion.radiusMedium
     }
 
-    MouseArea {
-        id: hover
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
+    HoverHandler {
+        id: hoverHandler
+        enabled: root.visible
     }
 
     Rectangle {
@@ -39,7 +62,11 @@ Rectangle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 4
-        color: itemData.group_color
+        color: MotionCore.mixColor(itemData.group_color || theme.borderStrong, theme.anchor, interaction.textStrength * 0.18)
+
+        Behavior on color {
+            ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+        }
     }
 
     Column {
@@ -53,11 +80,15 @@ Rectangle {
 
         Text {
             text: itemData.display_title
-            color: theme.text
+            color: MotionCore.mixColor(theme.text, theme.anchor, interaction.textStrength * 0.26)
             font.pixelSize: 16
             font.weight: Font.DemiBold
             elide: Text.ElideRight
             width: parent.width
+
+            Behavior on color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
         }
 
         Row {
@@ -70,27 +101,43 @@ Rectangle {
 
         Text {
             text: (itemData.authors || "未标注作者") + (itemData.metadata_summary ? "  ·  " + itemData.metadata_summary : "")
-            color: theme.textMuted
+            color: MotionCore.mixColor(theme.textMuted, theme.textSoft, interaction.textStrength * 0.36)
             width: parent.width
             elide: Text.ElideRight
+
+            Behavior on color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
         }
 
         Rectangle {
             width: parent.width
-            color: theme.panelInset
-            border.color: theme.border
+            color: MotionCore.mixColor(theme.panelInset, theme.panelFocus, interaction.frameStrength * 0.44 + interaction.settleStrength * 0.08)
+            border.color: MotionCore.mixColor(theme.border, theme.accentOutline, interaction.frameStrength * 0.54 + interaction.settleStrength * 0.14)
             border.width: 1
-            radius: 4
+            radius: motion.radiusSmall
             implicitHeight: 56
+
+            Behavior on color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
+
+            Behavior on border.color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
 
             Text {
                 anchors.fill: parent
                 anchors.margins: 10
                 text: itemData.excerpt || "尚未生成摘要摘录。"
-                color: theme.textSoft
+                color: MotionCore.mixColor(theme.textSoft, theme.textMuted, interaction.textStrength * 0.42)
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
+
+                Behavior on color {
+                    ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                }
             }
         }
     }

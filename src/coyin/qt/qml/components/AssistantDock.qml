@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Coyin.Chrome 1.0
 import "."
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
 Rectangle {
     id: root
@@ -11,17 +12,34 @@ Rectangle {
     property var theme: UiDefaults.safeTheme(UiDefaults.theme())
     readonly property var messages: controller ? controller.assistantMessages : []
     radius: 6
-    color: theme.panelRaised
-    border.color: theme.border
+    color: MotionCore.mixColor(theme.panelRaised, theme.accentSurface, interaction.engageProgress * 0.08)
+    border.color: MotionCore.mixColor(theme.border, theme.accentOutline, interaction.engageProgress * 0.12)
     border.width: 1
     implicitHeight: dockColumn.implicitHeight + 28
 
-    property bool engaged: inputField.activeFocus || panelHover.containsMouse
+    Behavior on color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
+
+    Behavior on border.color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
+
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: panelHover.hovered
+        pressedInput: false
+        focusedInput: inputField.activeFocus
+        busyInput: false
+        selectedInput: false
+    }
 
     SignalAccent {
         anchors.fill: parent
-        active: root.engaged
-        hovered: panelHover.containsMouse
+        active: interaction.active
+        hovered: panelHover.hovered
         pressed: false
         accentColor: theme.accent
         neutralColor: theme.accentSoft
@@ -29,11 +47,9 @@ Rectangle {
         radius: 6
     }
 
-    MouseArea {
+    HoverHandler {
         id: panelHover
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
+        enabled: root.visible
     }
 
     Column {
@@ -71,8 +87,12 @@ Rectangle {
                 width: assistantView.width
                 height: textItem.paintedHeight + 18
                 radius: 4
-                color: modelData.role === "assistant" ? theme.panelInset : theme.accentPanel
-                border.color: modelData.role === "assistant" ? theme.border : theme.accentOutline
+                color: modelData.role === "assistant"
+                    ? MotionCore.mixColor(theme.panelInset, theme.panelFocus, 0.10)
+                    : MotionCore.mixColor(theme.accentPanel, theme.accentSurface, 0.18)
+                border.color: modelData.role === "assistant"
+                    ? MotionCore.mixColor(theme.border, theme.borderStrong, 0.12)
+                    : MotionCore.mixColor(theme.accentOutline, theme.anchor, 0.16)
                 border.width: 1
                 Text {
                     id: textItem
@@ -98,24 +118,31 @@ Rectangle {
             width: parent.width
             height: 40
             radius: 4
-            color: theme.panelInset
-            border.color: inputField.activeFocus ? theme.accentOutline : theme.border
+            color: MotionCore.mixColor(theme.panelInset, theme.panelFocus, interaction.focusProgress * 0.26 + interaction.hoverProgress * 0.06)
+            border.color: MotionCore.mixColor(theme.border, theme.accentOutline, Math.max(interaction.focusProgress, inputHover.hovered ? 0.35 : 0.0))
             border.width: 1
+
+            Behavior on color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
+
+            Behavior on border.color {
+                ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+            }
+
             SignalAccent {
                 anchors.fill: parent
-                active: inputField.activeFocus
-                hovered: inputMouse.containsMouse
+                active: inputField.activeFocus && root.visible
+                hovered: inputHover.hovered
                 pressed: false
                 accentColor: theme.anchor
                 neutralColor: theme.accentSoft
                 edge: "bottom"
                 radius: 4
             }
-            MouseArea {
-                id: inputMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
+            HoverHandler {
+                id: inputHover
+                enabled: root.visible
             }
             Row {
                 anchors.fill: parent

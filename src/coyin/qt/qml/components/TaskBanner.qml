@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Coyin.Chrome 1.0
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 import "."
 
 Rectangle {
@@ -17,18 +18,46 @@ Rectangle {
         ? theme.danger
         : (busy ? theme.anchor : (phase === "ready" ? theme.accent : theme.borderStrong))
 
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: bannerHover.hovered
+        pressedInput: false
+        focusedInput: false
+        busyInput: root.busy
+        selectedInput: phase === "ready"
+    }
+
     radius: 6
-    color: busy ? theme.accentPanel : theme.panelInset
-    border.color: busy ? theme.accentOutline : theme.border
+    color: MotionCore.mixColor(busy ? theme.accentPanel : theme.panelInset, phase === "error" ? theme.note : theme.accentSurface, interaction.engageProgress * (phase === "error" ? 0.16 : 0.09))
+    border.color: MotionCore.mixColor(busy ? theme.accentOutline : theme.border, root.stripeColor, 0.14 + interaction.engageProgress * 0.10)
     border.width: 1
     implicitHeight: bannerColumn.implicitHeight + 28
+
+    HoverHandler {
+        id: bannerHover
+        enabled: root.visible
+    }
+
+    Behavior on color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
+
+    Behavior on border.color {
+        ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
+    }
 
     Rectangle {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 4
+        width: 4 + interaction.engageProgress * 1.5
         color: root.stripeColor
+
+        Behavior on width {
+            NumberAnimation { duration: MotionCore.duration("fast", root.theme); easing.type: Easing.OutCubic }
+        }
     }
 
     SignalAccent {
@@ -110,7 +139,9 @@ Rectangle {
             visible: root.busy
             width: Math.min(parent.width, 220)
             tint: root.stripeColor
-            base: theme.accentSoft
+            base: MotionCore.mixColor(theme.accentSoft, theme.panelFocus, interaction.busyProgress * 0.20)
+            frameColor: theme.panelRaised
+            borderColor: theme.border
             running: visible
         }
     }

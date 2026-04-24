@@ -17,30 +17,42 @@ Rectangle {
 
     radius: 6
     color: panelColor
-    border.color: borderColor
+    border.color: root.interactive && interaction.hovered ? root.accentColor : borderColor
     border.width: 1
     implicitHeight: headerColumn.implicitHeight + content.implicitHeight + 44
 
+    Behavior on border.color {
+        ColorAnimation { duration: 110 }
+    }
+
     default property alias cardContent: content.data
+
+    InteractionState {
+        id: interaction
+        enabledInput: root.enabled
+        visibleInput: root.visible
+        hoveredInput: hoverHandler.hovered
+        pressedInput: false
+        focusedInput: false
+        busyInput: false
+        selectedInput: false
+    }
 
     SignalAccent {
         anchors.fill: parent
         visible: root.interactive
-        active: false
-        hovered: hover.containsMouse
-        pressed: false
+        active: interaction.active
+        hovered: interaction.hovered
+        pressed: interaction.pressed
         accentColor: root.accentColor
         neutralColor: root.accentSoft
         edge: "frame"
         radius: root.radius
     }
 
-    MouseArea {
-        id: hover
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        visible: root.interactive
+    HoverHandler {
+        id: hoverHandler
+        enabled: root.interactive && root.visible
     }
 
     Column {
@@ -56,7 +68,11 @@ Rectangle {
             Rectangle {
                 width: 30
                 height: 3
-                color: root.accentColor
+                color: root.interactive && interaction.hovered ? root.textColor : root.accentColor
+
+                Behavior on color {
+                    ColorAnimation { duration: 110 }
+                }
             }
 
             Text {
@@ -65,6 +81,10 @@ Rectangle {
                 font.pixelSize: 16
                 font.weight: Font.DemiBold
                 color: root.textColor
+
+                Behavior on color {
+                    ColorAnimation { duration: 110 }
+                }
             }
 
             Text {

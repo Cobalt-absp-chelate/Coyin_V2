@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
 
-from coyin.native.bridge import load_shell_schema
+from coyin.config import shell_schema as load_shell_schema
 
 
 @dataclass(frozen=True, slots=True)

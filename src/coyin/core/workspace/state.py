@@ -100,6 +100,22 @@ class UiState:
 
 
 @dataclass(slots=True)
+class WorkflowState:
+    current_page: str = "home"
+    current_document_id: str = ""
+    current_analysis_id: str = ""
+    current_draft_id: str = ""
+    current_latex_session_id: str = ""
+    current_search_query: str = ""
+    current_search_sources: list[str] = field(default_factory=list)
+    page_revision: int = 0
+    document_revision: int = 0
+    analysis_revision: int = 0
+    writing_revision: int = 0
+    search_revision: int = 0
+
+
+@dataclass(slots=True)
 class WorkspaceState:
     documents: list[DocumentDescriptor] = field(default_factory=list)
     groups: list[LibraryGroup] = field(default_factory=list)
@@ -113,6 +129,7 @@ class WorkspaceState:
     plugin_states: list[PluginRuntimeState] = field(default_factory=list)
     providers: list[ProviderConfig] = field(default_factory=list)
     ui: UiState = field(default_factory=UiState)
+    workflow: WorkflowState = field(default_factory=WorkflowState)
 
     @classmethod
     def create_default(cls) -> "WorkspaceState":

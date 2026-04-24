@@ -5,7 +5,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Iterable
 
-from coyin.native.bridge import load_model_contracts
+from coyin.config import model_contracts as load_model_contracts
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,8 +156,8 @@ FALLBACK_MODEL_CONTRACTS: dict[str, dict[str, Any]] = {
         "sort": [{"field": "document_count", "order": "desc"}],
     },
     "kindOption": {
-        "roles": ["id", "label", "count"],
-        "primaryKey": "id",
+        "roles": ["kind_id", "label", "count"],
+        "primaryKey": "kind_id",
         "sort": [{"field": "label", "order": "asc"}],
     },
     "recentNote": {
@@ -196,6 +196,18 @@ FALLBACK_MODEL_CONTRACTS: dict[str, dict[str, Any]] = {
 }
 
 
+def _normalize_payloads(payload: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    normalized = {key: dict(value) for key, value in payload.items()}
+    kind_option = normalized.get("kindOption")
+    if kind_option:
+        roles = [str(item) for item in kind_option.get("roles", [])]
+        if "id" in roles:
+            kind_option["roles"] = ["kind_id" if item == "id" else item for item in roles]
+        if str(kind_option.get("primaryKey", "")) == "id":
+            kind_option["primaryKey"] = "kind_id"
+    return normalized
+
+
 def _normalize_contract(key: str, payload: dict[str, Any]) -> ModelContract:
     roles = tuple(str(item) for item in payload.get("roles", []))
     rules = tuple(
@@ -215,7 +227,7 @@ def _normalize_contract(key: str, payload: dict[str, Any]) -> ModelContract:
 
 @lru_cache(maxsize=1)
 def _contracts() -> dict[str, ModelContract]:
-    payload = load_model_contracts() or FALLBACK_MODEL_CONTRACTS
+    payload = _normalize_payloads(load_model_contracts() or FALLBACK_MODEL_CONTRACTS)
     return {key: _normalize_contract(key, value) for key, value in payload.items()}
 
 

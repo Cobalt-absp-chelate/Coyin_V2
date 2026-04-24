@@ -45,9 +45,6 @@ class WorkspaceIndexCore:
         self.search_service = search_service
         self.library_filters = LibraryFilters()
         self._search_results: list[SearchResult] = []
-        self._last_search_query = ""
-        self._last_search_sources: list[str] = []
-        self._current_report_id = ""
 
     def _order_with_native(self, rows: list[dict[str, Any]], function, payload_builder) -> list[dict[str, Any]]:
         ordered = function(payload_builder(rows))
@@ -80,11 +77,10 @@ class WorkspaceIndexCore:
 
     def set_search_context(self, results: Iterable[SearchResult], query: str, source_ids: list[str]) -> None:
         self._search_results = list(results)
-        self._last_search_query = query.strip()
-        self._last_search_sources = list(source_ids)
+        self.workspace.set_search_context(query, source_ids)
 
     def set_current_report(self, report_id: str) -> None:
-        self._current_report_id = report_id
+        self.workspace.set_current_analysis(report_id)
 
     def find_search_result(self, result_id: str) -> SearchResult | None:
         for result in self._search_results:
@@ -284,10 +280,9 @@ class WorkspaceIndexCore:
 
     def current_analysis_row(self) -> dict[str, Any]:
         reports = {report.report_id: report for report in self.workspace.state.analyses}
-        target_id = self._current_report_id if self._current_report_id in reports else ""
-        if not target_id and self.workspace.state.analyses:
+        target_id = self.workspace.state.workflow.current_analysis_id
+        if target_id not in reports and self.workspace.state.analyses:
             target_id = self.workspace.state.analyses[0].report_id
-            self._current_report_id = target_id
         report = reports.get(target_id)
         return self._report_row(report) if report else {}
 
@@ -335,9 +330,9 @@ class WorkspaceIndexCore:
         counts: dict[str, int] = {}
         for document in self.all_documents():
             counts[document.kind] = counts.get(document.kind, 0) + 1
-        options = [{"id": "all", "label": "全部类型", "count": len(self.all_documents())}]
+        options = [{"kind_id": "all", "label": "全部类型", "count": len(self.all_documents())}]
         for kind, count in sorted(counts.items(), key=lambda item: KIND_LABELS.get(item[0], item[0])):
-            options.append({"id": kind, "label": KIND_LABELS.get(kind, kind.upper()), "count": count})
+            options.append({"kind_id": kind, "label": KIND_LABELS.get(kind, kind.upper()), "count": count})
         return options
 
     def provider_rows(self) -> list[dict[str, Any]]:
@@ -365,21 +360,21 @@ class WorkspaceIndexCore:
                 "entry_id": "appearance",
                 "title": "界面外观",
                 "value": "浅色模式" if theme_mode == "light" else "夜间模式",
-                "detail": "顶部页签、焦点描边和状态强调已接入深蓝层级",
+                "detail": "深蓝层级与小圆角矩形",
                 "state": theme_mode,
             },
             {
                 "entry_id": "provider",
                 "title": "主模型接口",
                 "value": active_provider.name if active_provider else "未配置",
-                "detail": active_provider.default_model if active_provider else "当前没有激活 Provider",
+                "detail": active_provider.default_model if active_provider else "未启用",
                 "state": "ready" if active_provider else "empty",
             },
             {
                 "entry_id": "plugins",
                 "title": "插件运行态",
                 "value": f"{len([row for row in self.plugin_rows() if row['plugin_enabled']])} 个已启用",
-                "detail": "插件列表已进入正式模型层",
+                "detail": "插件状态",
                 "state": "ready",
             },
         ]
@@ -434,76 +429,76 @@ class WorkspaceIndexCore:
     def home_metric_rows(self) -> list[dict[str, Any]]:
         overview = self.home_overview()
         return [
-            {"metric_id": "documents", "label": "资料总量", "value": overview["total_documents"], "detail": "当前工作空间已入库资料", "tone": "neutral"},
-            {"metric_id": "pdf", "label": "PDF 主体", "value": overview["pdf_documents"], "detail": "适合继续进入阅读与分析", "tone": "neutral"},
-            {"metric_id": "drafts", "label": "写作草稿", "value": overview["draft_documents"], "detail": "可直接续写已有草稿", "tone": "accent"},
-            {"metric_id": "analyses", "label": "分析报告", "value": overview["analysis_reports"], "detail": "结构化分析历史", "tone": "accent"},
-            {"metric_id": "notes", "label": "研究笔记", "value": overview["notes"], "detail": "已沉淀的研究记录", "tone": "neutral"},
+            {"metric_id": "documents", "label": "资料总量", "value": overview["total_documents"], "detail": "已入库", "tone": "neutral"},
+            {"metric_id": "pdf", "label": "PDF", "value": overview["pdf_documents"], "detail": "可阅读", "tone": "neutral"},
+            {"metric_id": "drafts", "label": "草稿", "value": overview["draft_documents"], "detail": "可续写", "tone": "accent"},
+            {"metric_id": "analyses", "label": "分析", "value": overview["analysis_reports"], "detail": "已生成", "tone": "accent"},
+            {"metric_id": "notes", "label": "笔记", "value": overview["notes"], "detail": "已沉淀", "tone": "neutral"},
         ]
 
     def home_path_rows(self) -> list[dict[str, Any]]:
-        recent_search = self.workspace.state.recent_searches[0] if self.workspace.state.recent_searches else "从多来源检索论文"
-        latest_analysis = self.workspace.state.analyses[0].title if self.workspace.state.analyses else "选择文档后生成结构化报告"
-        latest_writer = self.workspace.recent_writers()[0].title if self.workspace.recent_writers() else "继续当前写作路径"
-        latest_latex = self.workspace.state.recent_latex_sessions[0].title if self.workspace.state.recent_latex_sessions else "打开基础模板"
+        recent_search = self.workspace.state.recent_searches[0] if self.workspace.state.recent_searches else "开始检索"
+        latest_analysis = self.workspace.state.analyses[0].title if self.workspace.state.analyses else "开始分析"
+        latest_writer = self.workspace.recent_writers()[0].title if self.workspace.recent_writers() else "新建草稿"
+        latest_latex = self.workspace.state.recent_latex_sessions[0].title if self.workspace.state.recent_latex_sessions else "打开模板"
         return [
             {
                 "path_id": "import",
                 "title": "资料入库",
-                "caption": "导入新资料并进入资料库整理主路径",
-                "detail": f"{len(self.all_documents())} 份资料已在工作空间中",
+                "caption": f"{len(self.all_documents())} 份资料",
+                "detail": "导入文档",
                 "badge": "资料库",
                 "page_id": "library",
                 "action_id": "importDocuments",
-                "action_label": "导入文档",
+                "action_label": "导入",
                 "mark": "导",
                 "tone": "neutral",
             },
             {
                 "path_id": "search",
                 "title": "论文检索",
-                "caption": "从 arXiv、Crossref、OpenAlex、DBLP 聚合候选论文",
+                "caption": recent_search,
                 "detail": recent_search,
-                "badge": "搜索",
+                "badge": "最近检索",
                 "page_id": "search",
                 "action_id": "gotoSearch",
-                "action_label": "进入搜索",
+                "action_label": "进入",
                 "mark": "搜",
                 "tone": "accent",
             },
             {
                 "path_id": "analysis",
                 "title": "结构化分析",
-                "caption": "把文档整理成可转写、可导出的分析报告",
+                "caption": latest_analysis,
                 "detail": latest_analysis,
-                "badge": "分析",
+                "badge": "最新分析",
                 "page_id": "analysis",
                 "action_id": "gotoAnalysis",
-                "action_label": "查看报告",
+                "action_label": "查看",
                 "mark": "析",
                 "tone": "accent",
             },
             {
                 "path_id": "writer",
                 "title": "写作草稿",
-                "caption": "继续已有草稿，或直接新建文档",
+                "caption": latest_writer,
                 "detail": latest_writer,
-                "badge": "写作",
+                "badge": "最近草稿",
                 "page_id": "home",
                 "action_id": "createWriterDocument",
-                "action_label": "新建文档",
+                "action_label": "新建",
                 "mark": "写",
                 "tone": "neutral",
             },
             {
                 "path_id": "latex",
                 "title": "LaTeX 草案",
-                "caption": "延续公式与排版工作流",
+                "caption": latest_latex,
                 "detail": latest_latex,
-                "badge": "LaTeX",
+                "badge": "最近会话",
                 "page_id": "home",
                 "action_id": "openLatexWindow",
-                "action_label": "打开窗口",
+                "action_label": "打开",
                 "mark": "TeX",
                 "tone": "neutral",
             },
@@ -531,14 +526,15 @@ class WorkspaceIndexCore:
         top_source = ""
         if counts:
             top_source = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+        workflow = self.workspace.state.workflow
         return {
-            "query": self._last_search_query,
+            "query": workflow.current_search_query,
             "result_count": len(self._search_results),
             "source_count": len([count for count in counts.values() if count > 0]),
             "pdf_count": len([result for result in self._search_results if result.pdf_url]),
             "top_source": top_source,
             "latest_year": latest_year,
-            "selected_sources": list(self._last_search_sources),
+            "selected_sources": list(workflow.current_search_sources),
         }
 
     def analysis_workspace_state(self) -> dict[str, Any]:

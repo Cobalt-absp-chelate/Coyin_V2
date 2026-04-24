@@ -41,6 +41,20 @@ class AnnotationStore(QObject):
         if document_id:
             self.changed.emit(document_id)
 
+    def update(self, record: AnnotationRecord) -> None:
+        document_id = ""
+        updated: list[AnnotationRecord] = []
+        for item in self._records:
+            if item.annotation_id == record.annotation_id:
+                updated.append(record)
+                document_id = record.document_id
+            else:
+                updated.append(item)
+        self._records = updated
+        self._persist()
+        if document_id:
+            self.changed.emit(document_id)
+
     def list_for_document(self, document_id: str) -> list[AnnotationRecord]:
         return [item for item in self._records if item.document_id == document_id]
 

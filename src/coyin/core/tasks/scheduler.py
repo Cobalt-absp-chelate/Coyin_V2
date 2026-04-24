@@ -2,9 +2,31 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+import threading
+import time
 from typing import Any, Callable
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
+
+
+class TaskCancelledError(RuntimeError):
+    pass
+
+
+class TaskToken:
+    def __init__(self):
+        self._cancelled = threading.Event()
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancelled.is_set()
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+
+    def throw_if_cancelled(self) -> None:
+        if self.cancelled:
+            raise TaskCancelledError("任务已取消")
 
 
 @dataclass(slots=True)
@@ -17,11 +39,13 @@ class TaskRequest:
     timeout_ms: int = 0
     cancellable: bool = True
     exclusive: bool = False
+    consumer_id: str = ""
 
 
 @dataclass(slots=True)
 class ScheduledTaskState:
     task_id: str
+    consumer_id: str
     lane: str
     status: str
     priority: str
@@ -29,6 +53,8 @@ class ScheduledTaskState:
     running: bool = False
     revision: int = 0
     message: str = ""
+    last_duration_ms: float = 0.0
+    run_count: int = 0
 
 
 class _SchedulerSignals(QObject):
@@ -60,8 +86,10 @@ class _TaskEntry:
     on_error: Callable[[str], None]
     on_started: Callable[[], None] | None = None
     on_finished: Callable[[], None] | None = None
+    token: TaskToken | None = None
     dropped: bool = False
     expired: bool = False
+    started_at: float = 0.0
 
 
 class WorkSchedulerCore(QObject):
@@ -81,6 +109,7 @@ class WorkSchedulerCore(QObject):
         self._revisions: dict[str, int] = {}
         self._timeouts: dict[str, QTimer] = {}
         self._states: dict[str, ScheduledTaskState] = {}
+        self._run_counts: dict[str, int] = {}
 
     def submit(
         self,
@@ -107,6 +136,7 @@ class WorkSchedulerCore(QObject):
             on_error=on_error,
             on_started=on_started,
             on_finished=on_finished,
+            token=TaskToken() if request.cancellable else None,
         )
 
         if request.policy == "replace":
@@ -118,6 +148,7 @@ class WorkSchedulerCore(QObject):
             request.task_id,
             ScheduledTaskState(
                 task_id=request.task_id,
+                consumer_id=request.consumer_id,
                 lane=request.lane,
                 status="queued",
                 priority=request.priority,
@@ -137,14 +168,17 @@ class WorkSchedulerCore(QObject):
                 entry = queue.popleft()
                 if entry.request.task_id == task_id:
                     entry.dropped = True
+                    entry.token and entry.token.cancel()
                     cancelled = True
                 else:
                     pending.append(entry)
             self._queues[lane] = pending
 
-        if not keep_running and task_id in self._running:
-            self._running[task_id].dropped = True
-            cancelled = True
+        if task_id in self._running:
+            self._running[task_id].token and self._running[task_id].token.cancel()
+            if not keep_running or self._running[task_id].request.cancellable:
+                self._running[task_id].dropped = True
+                cancelled = True
 
         if cancelled:
             state = self._states.get(task_id)
@@ -155,10 +189,22 @@ class WorkSchedulerCore(QObject):
             self.taskCancelled.emit(task_id)
             self.taskStateChanged.emit()
 
+    def cancel_consumer(self, consumer_id: str) -> None:
+        if not consumer_id:
+            return
+        task_ids = [
+            task_id
+            for task_id, state in self._states.items()
+            if state.consumer_id == consumer_id and (state.queued or state.running)
+        ]
+        for task_id in task_ids:
+            self.cancel(task_id)
+
     def states(self) -> list[dict[str, Any]]:
         return [
             {
                 "task_id": state.task_id,
+                "consumer_id": state.consumer_id,
                 "lane": state.lane,
                 "status": state.status,
                 "priority": state.priority,
@@ -166,6 +212,8 @@ class WorkSchedulerCore(QObject):
                 "running": state.running,
                 "revision": state.revision,
                 "message": state.message,
+                "last_duration_ms": state.last_duration_ms,
+                "run_count": state.run_count,
             }
             for state in sorted(self._states.values(), key=lambda item: (item.lane, item.task_id))
         ]
@@ -200,22 +248,25 @@ class WorkSchedulerCore(QObject):
 
     def _start(self, entry: _TaskEntry) -> None:
         task_id = entry.request.task_id
-        runnable = _ScheduledRunnable(task_id, entry.revision, entry.fn)
+        runnable = _ScheduledRunnable(task_id, entry.revision, lambda: entry.fn(entry.token))
         runnable.signals.finished.connect(self._handle_finished)
         runnable.signals.failed.connect(self._handle_failed)
 
         self._running[task_id] = entry
         self._running_by_lane.setdefault(entry.request.lane, set()).add(task_id)
+        entry.started_at = time.perf_counter()
         self._set_state(
             task_id,
             ScheduledTaskState(
                 task_id=task_id,
+                consumer_id=entry.request.consumer_id,
                 lane=entry.request.lane,
                 status="running",
                 priority=entry.request.priority,
                 queued=False,
                 running=True,
                 revision=entry.revision,
+                run_count=self._run_counts.get(task_id, 0),
             ),
         )
         if entry.request.timeout_ms > 0:
@@ -281,16 +332,21 @@ class WorkSchedulerCore(QObject):
         if timer:
             timer.stop()
             timer.deleteLater()
+        duration_ms = max(0.0, (time.perf_counter() - entry.started_at) * 1000.0) if entry.started_at else 0.0
+        self._run_counts[task_id] = self._run_counts.get(task_id, 0) + 1
         self._set_state(
             task_id,
             ScheduledTaskState(
                 task_id=task_id,
+                consumer_id=entry.request.consumer_id,
                 lane=entry.request.lane,
                 status="idle",
                 priority=entry.request.priority,
                 queued=False,
                 running=False,
                 revision=entry.revision,
+                last_duration_ms=duration_ms,
+                run_count=self._run_counts[task_id],
             ),
         )
         self._pump(entry.request.lane)

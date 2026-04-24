@@ -17,6 +17,7 @@ from coyin.core.workspace.state import (
     ProviderConfig,
     ResearchNote,
     UiState,
+    WorkflowState,
     WorkspaceState,
 )
 
@@ -53,11 +54,16 @@ def _provider_from_dict(payload: dict) -> ProviderConfig:
     return ProviderConfig(**payload)
 
 
+def _workflow_from_dict(payload: dict) -> WorkflowState:
+    return WorkflowState(**payload)
+
+
 class WorkspaceService(QObject):
     state_changed = Signal()
     library_changed = Signal()
     analyses_changed = Signal()
     settings_changed = Signal()
+    document_opened = Signal(str)
 
     def __init__(self, workspace_file: Path):
         super().__init__()
@@ -84,6 +90,7 @@ class WorkspaceService(QObject):
             plugin_states=[_plugin_state_from_dict(item) for item in payload.get("plugin_states", [])],
             providers=[_provider_from_dict(item) for item in payload.get("providers", [])],
             ui=UiState(**payload.get("ui", {})),
+            workflow=_workflow_from_dict(payload.get("workflow", {})),
         )
 
     def _save_state(self, state: WorkspaceState | None = None) -> None:
@@ -95,6 +102,7 @@ class WorkspaceService(QObject):
         state.recent_writer_ids = self._dedupe_ids(state.recent_writer_ids)
         state.recent_searches = self._dedupe_ids(state.recent_searches)
         state.plugin_states = self._dedupe_plugin_states(state.plugin_states)
+        state.workflow.current_search_sources = self._dedupe_ids(state.workflow.current_search_sources)
         return state
 
     def _dedupe_documents(self, documents: list[DocumentDescriptor]) -> list[DocumentDescriptor]:
@@ -167,7 +175,7 @@ class WorkspaceService(QObject):
                 break
         self._touch_recent(descriptor.document_id)
         self.persist(emit_state=False)
-        self.library_changed.emit()
+        self.document_opened.emit(descriptor.document_id)
 
     def _touch_recent(self, document_id: str) -> None:
         if document_id in self.state.recent_opened_ids:
@@ -293,6 +301,93 @@ class WorkspaceService(QObject):
             if session.session_id == session_id:
                 return session
         return None
+
+    def set_current_page(self, page_id: str) -> int:
+        if page_id == self.state.workflow.current_page:
+            return self.state.workflow.page_revision
+        self.state.workflow.current_page = page_id
+        self.state.workflow.page_revision += 1
+        self.persist()
+        return self.state.workflow.page_revision
+
+    def set_current_document(self, document_id: str) -> int:
+        if document_id == self.state.workflow.current_document_id:
+            return self.state.workflow.document_revision
+        self.state.workflow.current_document_id = document_id
+        self.state.workflow.document_revision += 1
+        self.persist()
+        return self.state.workflow.document_revision
+
+    def clear_current_document(self, document_id: str) -> int:
+        if self.state.workflow.current_document_id != document_id:
+            return self.state.workflow.document_revision
+        self.state.workflow.current_document_id = ""
+        self.state.workflow.document_revision += 1
+        self.persist()
+        return self.state.workflow.document_revision
+
+    def set_current_analysis(self, report_id: str) -> int:
+        if report_id == self.state.workflow.current_analysis_id:
+            return self.state.workflow.analysis_revision
+        self.state.workflow.current_analysis_id = report_id
+        self.state.workflow.analysis_revision += 1
+        self.persist()
+        return self.state.workflow.analysis_revision
+
+    def set_current_draft(self, draft_id: str) -> int:
+        if draft_id == self.state.workflow.current_draft_id:
+            return self.state.workflow.writing_revision
+        self.state.workflow.current_draft_id = draft_id
+        self.state.workflow.writing_revision += 1
+        self.persist()
+        return self.state.workflow.writing_revision
+
+    def set_current_latex_session(self, session_id: str) -> int:
+        if session_id == self.state.workflow.current_latex_session_id:
+            return self.state.workflow.writing_revision
+        self.state.workflow.current_latex_session_id = session_id
+        self.state.workflow.writing_revision += 1
+        self.persist()
+        return self.state.workflow.writing_revision
+
+    def set_search_context(self, query: str, source_ids: list[str]) -> int:
+        workflow = self.state.workflow
+        next_query = query.strip()
+        next_sources = self._dedupe_ids([str(item) for item in source_ids if str(item).strip()])
+        if workflow.current_search_query == next_query and workflow.current_search_sources == next_sources:
+            return workflow.search_revision
+        workflow.current_search_query = next_query
+        workflow.current_search_sources = next_sources
+        workflow.search_revision += 1
+        self.persist()
+        return workflow.search_revision
+
+    def search_checkpoint(self) -> dict[str, object]:
+        workflow = self.state.workflow
+        return {
+            "search_revision": workflow.search_revision,
+            "page_revision": workflow.page_revision,
+            "required_page": "search",
+        }
+
+    def analysis_checkpoint(self) -> dict[str, object]:
+        workflow = self.state.workflow
+        return {
+            "page_revision": workflow.page_revision,
+            "required_page": workflow.current_page,
+        }
+
+    def accepts_checkpoint(self, checkpoint: dict[str, object]) -> bool:
+        workflow = self.state.workflow
+        page_revision = int(checkpoint.get("page_revision", workflow.page_revision))
+        if workflow.page_revision != page_revision:
+            return False
+        required_page = str(checkpoint.get("required_page", ""))
+        if required_page and workflow.current_page != required_page:
+            return False
+        if "search_revision" in checkpoint:
+            return workflow.search_revision == int(checkpoint.get("search_revision", workflow.search_revision))
+        return True
 
     def add_analysis(self, report: AnalysisReportState) -> None:
         self.state.analyses.insert(0, report)

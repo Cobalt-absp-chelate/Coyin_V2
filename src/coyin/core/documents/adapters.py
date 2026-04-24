@@ -20,6 +20,7 @@ from coyin.core.documents.models import (
     DocumentSnapshot,
     OutlineItem,
 )
+from coyin.core.tasks import TaskToken
 
 try:
     import win32com.client  # type: ignore[import-untyped]
@@ -41,11 +42,11 @@ class DocumentAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         raise NotImplementedError
 
-    def load_reader_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
-        return self.load_snapshot(descriptor)
+    def load_reader_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
+        return self.load_snapshot(descriptor, task_token=task_token)
 
     def _base_descriptor(self, path: Path, title: str) -> DocumentDescriptor:
         return DocumentDescriptor(
@@ -84,12 +85,14 @@ class PdfAdapter(DocumentAdapter):
                 continue
         return "\n".join(fragments)
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         reader = PdfReader(descriptor.path)
-        outline = _pdf_outline(reader)
+        outline = _pdf_outline(reader, task_token=task_token)
         blocks: list[DocumentBlock] = []
         raw_parts: list[str] = []
         for index, page in enumerate(reader.pages):
+            if task_token:
+                task_token.throw_if_cancelled()
             try:
                 text = page.extract_text() or ""
             except Exception:
@@ -113,19 +116,21 @@ class PdfAdapter(DocumentAdapter):
             meta={"source": "pdf"},
         )
 
-    def load_reader_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_reader_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         reader = PdfReader(descriptor.path)
+        if task_token:
+            task_token.throw_if_cancelled()
         return DocumentSnapshot(
             document_id=descriptor.document_id,
             raw_text="",
             blocks=[],
-            outline=_pdf_outline(reader),
+            outline=_pdf_outline(reader, task_token=task_token),
             page_count=len(reader.pages),
             meta={"source": "pdf", "staged": True},
         )
 
 
-def _pdf_outline(reader: PdfReader) -> list[OutlineItem]:
+def _pdf_outline(reader: PdfReader, task_token: TaskToken | None = None) -> list[OutlineItem]:
     try:
         outline = reader.outline
     except Exception:
@@ -134,6 +139,8 @@ def _pdf_outline(reader: PdfReader) -> list[OutlineItem]:
     def convert(items: Iterable) -> list[OutlineItem]:
         result: list[OutlineItem] = []
         for item in items:
+            if task_token:
+                task_token.throw_if_cancelled()
             if isinstance(item, list):
                 if result:
                     result[-1].children.extend(convert(item))
@@ -161,7 +168,7 @@ class PlainTextAdapter(DocumentAdapter):
         descriptor.excerpt = _excerpt(text)
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         text = Path(descriptor.path).read_text(encoding="utf-8", errors="ignore")
         blocks = [
             DocumentBlock(block_id=f"line-{index}", kind="paragraph", text=line)
@@ -186,7 +193,7 @@ class MarkdownAdapter(DocumentAdapter):
         descriptor.excerpt = _excerpt(text)
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         text = Path(descriptor.path).read_text(encoding="utf-8", errors="ignore")
         blocks: list[DocumentBlock] = []
         outline: list[OutlineItem] = []
@@ -226,7 +233,7 @@ class DocxAdapter(DocumentAdapter):
         }
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         package = docx.Document(descriptor.path)
         blocks: list[DocumentBlock] = []
         raw_parts: list[str] = []
@@ -250,7 +257,7 @@ class DocBinaryAdapter(DocumentAdapter):
         descriptor.metadata = {"legacy_word": True}
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         converted = self._convert_to_docx(Path(descriptor.path))
         if converted:
             temp_descriptor = DocumentDescriptor(
@@ -294,7 +301,7 @@ class LatexAdapter(DocumentAdapter):
         descriptor.excerpt = _excerpt(text)
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         text = Path(descriptor.path).read_text(encoding="utf-8", errors="ignore")
         blocks = [
             DocumentBlock(block_id=f"line-{index}", kind="latex", text=line)
@@ -313,7 +320,7 @@ class DraftAdapter(DocumentAdapter):
         descriptor.excerpt = _excerpt(text)
         return descriptor
 
-    def load_snapshot(self, descriptor: DocumentDescriptor) -> DocumentSnapshot:
+    def load_snapshot(self, descriptor: DocumentDescriptor, task_token: TaskToken | None = None) -> DocumentSnapshot:
         text = Path(descriptor.path).read_text(encoding="utf-8", errors="ignore")
         return DocumentSnapshot(
             document_id=descriptor.document_id,
