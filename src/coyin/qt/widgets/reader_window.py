@@ -275,7 +275,7 @@ class PdfReaderPane(QWidget):
         )
 
     def apply_annotations(self, annotations: list[AnnotationRecord]) -> None:
-        _ = annotations
+        self.view.set_annotations(annotations)
 
     def search(self, term: str) -> None:
         if not self._loaded:
