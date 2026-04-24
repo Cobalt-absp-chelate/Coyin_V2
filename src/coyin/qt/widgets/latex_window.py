@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import re
+import os
 import subprocess
 from pathlib import Path
+import shutil
 from uuid import uuid4
 
-from PySide6.QtCore import QProcess, Qt, QTimer
+from PySide6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -27,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from coyin.core.common import now_iso
+from coyin.paths import app_root
 from coyin.core.tasks import TaskCenter, TaskRequest
 from coyin.core.workspace.state import LatexSessionState
 from coyin.qt.widgets.auto_scroll import install_auto_hide_scrollbars
@@ -93,6 +96,7 @@ class LatexWindow(QMainWindow):
         self.export_task_id = f"export::{session_state.session_id if session_state else self.work_dir.name}"
         self._consumer_id = f"latex::{session_state.session_id if session_state else self.work_dir.name}"
         self._suspend_save = False
+        self._latex_runtime_root = self._detect_latex_runtime_root()
 
         self.setWindowTitle(session_state.title if session_state else session_title)
         self.resize(1460, 940)
@@ -191,6 +195,48 @@ class LatexWindow(QMainWindow):
         self.apply_theme(theme_mode)
         self._build_shortcuts()
         self.preview_view.request_state()
+
+    def _detect_latex_runtime_root(self) -> Path | None:
+        root = app_root()
+        candidates = [
+            root / "latex_runtime" / "MiKTeX",
+            root / "MiKTeX",
+            Path(r"C:\MikTeX"),
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _latex_bin_dir(self) -> Path | None:
+        runtime = self._latex_runtime_root
+        if runtime is None:
+            return None
+        candidates = [
+            runtime / "miktex" / "bin" / "x64",
+            runtime / "bin" / "x64",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _latex_command_path(self, command_name: str) -> str:
+        executable = command_name if command_name.lower().endswith(".exe") else f"{command_name}.exe"
+        bin_dir = self._latex_bin_dir()
+        if bin_dir is not None:
+            candidate = bin_dir / executable
+            if candidate.exists():
+                return str(candidate)
+        resolved = shutil.which(command_name)
+        return resolved or command_name
+
+    def _latex_env(self) -> dict[str, str]:
+        env = dict(os.environ)
+        bin_dir = self._latex_bin_dir()
+        if bin_dir is not None:
+            env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        return env
 
     def closeEvent(self, event) -> None:
         if self.process.state() != QProcess.ProcessState.NotRunning:
@@ -516,11 +562,12 @@ class LatexWindow(QMainWindow):
     def _run_sync_command(self, args: list[str]) -> str:
         try:
             result = subprocess.run(
-                args,
+                [self._latex_command_path(args[0]), *args[1:]],
                 cwd=self.work_dir,
                 capture_output=True,
                 text=False,
                 timeout=15,
+                env=self._latex_env(),
             )
         except Exception as exc:
             return str(exc)
@@ -576,10 +623,17 @@ class LatexWindow(QMainWindow):
             detail=self.windowTitle(),
             meta={"session": self.windowTitle()},
         )
-        program = "xelatex"
+        program = self._latex_command_path("xelatex")
         args = ["-interaction=nonstopmode", "-synctex=1", "-halt-on-error", self.tex_path.name]
         self.process.setWorkingDirectory(str(self.work_dir))
+        self.process.setProcessEnvironment(self.processEnvironmentFromSystem())
         self.process.start(program, args)
+
+    def processEnvironmentFromSystem(self):
+        process_env = QProcessEnvironment.systemEnvironment()
+        for key, value in self._latex_env().items():
+            process_env.insert(key, value)
+        return process_env
 
     def _append_stdout(self) -> None:
         self.log_view.appendPlainText(bytes(self.process.readAllStandardOutput()).decode("utf-8", errors="ignore"))
