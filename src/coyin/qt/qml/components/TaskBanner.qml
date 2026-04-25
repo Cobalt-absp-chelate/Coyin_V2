@@ -18,15 +18,12 @@ Rectangle {
         ? theme.danger
         : (busy ? theme.anchor : (phase === "ready" ? theme.accent : theme.borderStrong))
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: bannerHover.hovered
-        pressedInput: false
-        focusedInput: false
-        busyInput: root.busy
-        selectedInput: phase === "ready"
+        targetItem: root
+        cursorEnabled: false
+        busy: root.busy
+        selected: phase === "ready"
     }
 
     radius: 6
@@ -34,11 +31,6 @@ Rectangle {
     border.color: MotionCore.mixColor(busy ? theme.accentOutline : theme.border, root.stripeColor, 0.14 + interaction.engageProgress * 0.10)
     border.width: 1
     implicitHeight: bannerColumn.implicitHeight + 28
-
-    HoverHandler {
-        id: bannerHover
-        enabled: root.visible
-    }
 
     Behavior on color {
         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }

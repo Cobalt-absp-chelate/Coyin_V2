@@ -282,6 +282,28 @@ class LatexWindow(QMainWindow):
         button.setIcon(themed_icon(action_id, self.theme_mode, size))
         button.setIconSize(QPixmap(size, size).size())
 
+    def _configure_toolbar_button(
+        self,
+        button: QToolButton,
+        action_id: str,
+        label: str,
+        *,
+        size: int = 18,
+    ) -> None:
+        title, description = self._icon_meta(action_id, label)
+        button.setProperty("actionId", action_id)
+        button.setAccessibleName(title)
+        button.setToolTip(self._tooltip_html(title, description))
+        button.setStatusTip(description)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setAutoRaise(False)
+        button.setMinimumHeight(34)
+        button.setMinimumWidth(76)
+        button.setText(label)
+        button.setIcon(themed_icon(action_id, self.theme_mode, size))
+        button.setIconSize(QPixmap(size, size).size())
+
     def _build_context_header(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("RibbonSurface")
@@ -291,7 +313,7 @@ class LatexWindow(QMainWindow):
 
         self.header_title = QLabel(self.windowTitle())
         self.header_title.setStyleSheet("font-size: 15px; font-weight: 600;")
-        self.header_context = QLabel("LaTeX 工作区")
+        self.header_context = QLabel("模板：basic")
         self.header_context.setStyleSheet("font-size: 11px; color: #708195;")
         self.header_status = QLabel("已载入")
         self.header_status.setStyleSheet("font-size: 11px; color: #164e74;")
@@ -317,27 +339,26 @@ class LatexWindow(QMainWindow):
         self.template_combo.addItems(sorted(path.stem for path in self.templates_dir.glob("*.tex")))
         self.template_combo.setCurrentText(self.current_template_name)
         self.template_combo.currentTextChanged.connect(lambda text: self._load_template(text, force=True))
+        self.template_combo.setMinimumWidth(132)
 
         self.compile_button = QToolButton()
-        self._configure_icon_button(self.compile_button, "latex-compile")
+        self._configure_toolbar_button(self.compile_button, "latex-compile", "编译")
         self.compile_button.clicked.connect(self.compile)
         self.sync_button = QToolButton()
-        self._configure_icon_button(self.sync_button, "reader-right")
+        self._configure_toolbar_button(self.sync_button, "reader-right", "同步")
         self.sync_button.clicked.connect(self._forward_sync)
         self.export_button = QToolButton()
-        self._configure_icon_button(self.export_button, "export-pdf")
+        self._configure_toolbar_button(self.export_button, "export-pdf", "导出")
         self.export_button.clicked.connect(self._export_pdf)
         self.reload_button = QToolButton()
-        self._configure_icon_button(self.reload_button, "more")
+        self._configure_toolbar_button(self.reload_button, "more", "重载")
         self.reload_button.clicked.connect(lambda: self._load_template(self.template_combo.currentText(), force=True))
         self.find_button = QToolButton()
-        self._configure_icon_button(self.find_button, "find")
+        self._configure_toolbar_button(self.find_button, "find", "查找")
         self.find_button.clicked.connect(self._find_text)
         self.writer_button = QToolButton()
-        self._configure_icon_button(self.writer_button, "notes")
+        self._configure_toolbar_button(self.writer_button, "notes", "草稿")
         self.writer_button.clicked.connect(self._open_or_create_writer)
-
-        self.chrome_hint = QLabel("模板、编译与导出。")
 
         layout.addWidget(QLabel("模板"))
         layout.addWidget(self.template_combo)
@@ -348,7 +369,6 @@ class LatexWindow(QMainWindow):
         layout.addWidget(self.find_button)
         layout.addWidget(self.reload_button)
         layout.addStretch(1)
-        layout.addWidget(self.chrome_hint)
         return bar
 
     def _build_shortcuts(self) -> None:
@@ -818,9 +838,7 @@ class LatexWindow(QMainWindow):
         document = self.workspace.find_document(self.session_state.linked_document_id) if self.session_state else None
         report = self.workspace.find_analysis(self.session_state.linked_report_id) if self.session_state else None
         draft = self.workspace.find_document(self.session_state.linked_draft_id) if self.session_state else None
-        self.header_context.setText(
-            f"模板：{self.current_template_name}  ·  工作目录：{self.work_dir.name}"
-        )
+        self.header_context.setText(f"模板：{self.current_template_name}")
         self.linked_document_label.setText(
             f"来源文档：{document.title}" if document else "未关联来源文档。"
         )

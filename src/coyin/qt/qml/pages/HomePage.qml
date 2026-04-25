@@ -87,13 +87,6 @@ ScrollView {
                                 font.weight: Font.DemiBold
                             }
 
-                            Text {
-                                width: parent.width
-                                text: "把阅读、检索、分析和写作收在一条主线上。"
-                                color: root.theme.textMuted
-                                font.pixelSize: 12
-                                wrapMode: Text.Wrap
-                            }
                         }
 
                         GridLayout {
@@ -254,13 +247,6 @@ ScrollView {
                                 font.weight: Font.DemiBold
                             }
 
-                            Text {
-                                width: Math.min(parent.width, 520)
-                                text: "继续最近资料与分析。"
-                                color: root.theme.textSoft
-                                font.pixelSize: 11
-                                wrapMode: Text.Wrap
-                            }
                         }
 
                         InfoPill {
@@ -401,15 +387,14 @@ ScrollView {
                                             ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
                                         }
 
-                                        InteractionState {
+                                        InteractionTracker {
                                             id: analysisInteraction
-                                            enabledInput: root.enabled
-                                            visibleInput: root.visible
-                                            hoveredInput: analysisHover.hovered
-                                            pressedInput: analysisTap.active
-                                            focusedInput: false
-                                            busyInput: false
-                                            selectedInput: false
+                                            targetItem: parent
+                                            tapEnabled: true
+                                            onTapped: {
+                                                if (root.shellState) root.shellState.setCurrentPage("analysis")
+                                                if (root.controller && entry.report_id) root.controller.focusAnalysis(entry.report_id)
+                                            }
                                         }
 
                                         Column {
@@ -444,20 +429,6 @@ ScrollView {
                                             radius: 4
                                         }
 
-                                        HoverHandler {
-                                            id: analysisHover
-                                            enabled: root.visible
-                                            cursorShape: Qt.PointingHandCursor
-                                        }
-
-                                        TapHandler {
-                                            id: analysisTap
-                                            enabled: root.visible
-                                            onTapped: {
-                                                if (root.shellState) root.shellState.setCurrentPage("analysis")
-                                                if (root.controller && entry.report_id) root.controller.focusAnalysis(entry.report_id)
-                                            }
-                                        }
                                     }
                                 }
 
@@ -577,15 +548,14 @@ ScrollView {
                                     ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
                                 }
 
-                                InteractionState {
+                                InteractionTracker {
                                     id: recentSearchInteraction
-                                    enabledInput: root.enabled
-                                    visibleInput: root.visible
-                                    hoveredInput: recentSearchHover.hovered
-                                    pressedInput: recentSearchTap.active
-                                    focusedInput: false
-                                    busyInput: false
-                                    selectedInput: false
+                                    targetItem: parent
+                                    tapEnabled: true
+                                    onTapped: {
+                                        if (root.shellState) root.shellState.setCurrentPage("search")
+                                        if (root.controller && entry.label) root.controller.runRecentSearch(entry.label)
+                                    }
                                 }
 
                                 Text {
@@ -612,20 +582,6 @@ ScrollView {
                                     radius: 4
                                 }
 
-                                HoverHandler {
-                                    id: recentSearchHover
-                                    enabled: root.visible
-                                    cursorShape: Qt.PointingHandCursor
-                                }
-
-                                TapHandler {
-                                    id: recentSearchTap
-                                    enabled: root.visible
-                                    onTapped: {
-                                        if (root.shellState) root.shellState.setCurrentPage("search")
-                                        if (root.controller && entry.label) root.controller.runRecentSearch(entry.label)
-                                    }
-                                }
                             }
                         }
                     }
@@ -653,8 +609,7 @@ ScrollView {
                     anchors.margins: 14
                     spacing: 10
 
-                    Text { text: "写作与排版"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
-                    Text { text: "继续草稿与排版。"; color: root.theme.textSoft; font.pixelSize: 11; width: parent.width; wrapMode: Text.Wrap }
+                    Text { text: "写作"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
 
                     ListView {
                         width: parent.width
@@ -727,15 +682,11 @@ ScrollView {
                                 ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
                             }
 
-                            InteractionState {
+                            InteractionTracker {
                                 id: latexInteraction
-                                enabledInput: root.enabled
-                                visibleInput: root.visible
-                                hoveredInput: latexHover.hovered
-                                pressedInput: latexTap.active
-                                focusedInput: false
-                                busyInput: false
-                                selectedInput: false
+                                targetItem: parent
+                                tapEnabled: true
+                                onTapped: if (root.controller && entry.session_id) root.controller.openLatexSession(entry.session_id)
                             }
 
                             Text {
@@ -765,17 +716,6 @@ ScrollView {
                                 radius: 4
                             }
 
-                            HoverHandler {
-                                id: latexHover
-                                enabled: root.visible
-                                cursorShape: Qt.PointingHandCursor
-                            }
-
-                            TapHandler {
-                                id: latexTap
-                                enabled: root.visible
-                                onTapped: if (root.controller && entry.session_id) root.controller.openLatexSession(entry.session_id)
-                            }
                         }
                     }
 
@@ -802,7 +742,6 @@ ScrollView {
                     spacing: 10
 
                     Text { text: "笔记"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
-                    Text { text: "研究笔记与回顾。"; color: root.theme.textSoft; font.pixelSize: 11; width: parent.width; wrapMode: Text.Wrap }
 
                     ListView {
                         width: parent.width

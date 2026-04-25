@@ -6,17 +6,18 @@ function defaultTokens() {
         radiusSmall: 4,
         radiusMedium: 6,
         radiusLarge: 8,
-        durationImmediate: 72,
-        durationFast: 110,
-        durationNormal: 170,
+        durationImmediate: 126,
+        durationFast: 148,
+        durationNormal: 182,
         durationSlow: 220,
-        durationPanel: 190,
-        durationPage: 210,
-        hoverShift: -0.45,
-        pressShift: 0.65,
-        cardHoverShift: -0.8,
-        cardPressShift: 0.45,
+        durationPanel: 196,
+        durationPage: 214,
+        hoverShift: -0.42,
+        pressShift: 0.52,
+        cardHoverShift: -0.72,
+        cardPressShift: 0.34,
         pageOffset: 10,
+        pageBackdropOffset: 22,
         disabledOpacity: 0.72
     }
 }
@@ -39,6 +40,10 @@ function duration(name, theme) {
     var t = tokens(theme)
     if (name === "immediate")
         return t.durationImmediate
+    if (name === "hover")
+        return t.durationFast
+    if (name === "focus")
+        return t.durationNormal
     if (name === "fast")
         return t.durationFast
     if (name === "slow")
@@ -126,36 +131,50 @@ function surfaceScale(hoverProgress, focusProgress, pressProgress, settleStrengt
     var hover = Math.max(hoverProgress || 0, focusProgress || 0)
     var press = pressProgress || 0
     var settle = settleStrength || 0
-    var hoverLift = cardLike ? 0.010 : 0.006
+    var hoverLift = cardLike ? 0.010 : 0.007
     var settleLift = cardLike ? 0.004 : 0.002
-    var pressDip = cardLike ? 0.018 : 0.012
+    var pressDip = cardLike ? 0.014 : 0.010
     return 1.0 + hover * hoverLift + settle * settleLift - press * pressDip
+}
+
+function feedbackShade(base, theme, hoverProgress, pressProgress, selectedProgress, focusProgress) {
+    var hover = Math.max(hoverProgress || 0, focusProgress || 0)
+    var press = pressProgress || 0
+    var selected = selectedProgress || 0
+    var target = theme && theme.mode === "dark" ? theme.background : theme.textMuted
+    var amount = clamp01(hover * 0.045 + press * 0.088 + selected * 0.024)
+    return mixColor(base, target, amount)
 }
 
 function buttonFill(theme, tone, selected, enabled, hovered, pressed, focused) {
     if (!enabled)
         return theme.panelInset
+    var baseColor
     if (tone === "danger") {
         if (pressed)
-            return theme.note
-        if (hovered || focused)
-            return theme.panelAlt
-        return selected ? theme.note : theme.panelRaised
+            baseColor = theme.note
+        else if (hovered || focused)
+            baseColor = theme.panelAlt
+        else
+            baseColor = selected ? theme.note : theme.panelRaised
+        return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, selected ? 0.5 : 0, focused ? 1 : 0)
     }
     if (selected)
-        return pressed ? theme.panelFocus : theme.accentPanel
-    if (tone === "accent") {
+        baseColor = pressed ? theme.panelFocus : theme.accentPanel
+    else if (tone === "accent") {
         if (pressed)
-            return theme.accentPanel
-        if (hovered || focused)
-            return theme.accentSurface
-        return theme.panelRaised
-    }
-    if (pressed || focused)
-        return theme.panelFocus
-    if (hovered)
-        return theme.panelHover
-    return theme.panelRaised
+            baseColor = theme.accentPanel
+        else if (hovered || focused)
+            baseColor = mixColor(theme.panelRaised, theme.accentSurface, 0.70)
+        else
+            baseColor = theme.panelRaised
+    } else if (pressed || focused)
+        baseColor = mixColor(theme.panelFocus, theme.accentSurface, 0.22)
+    else if (hovered)
+        baseColor = mixColor(theme.panelHover, theme.accentSurface, 0.18)
+    else
+        baseColor = theme.panelRaised
+    return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, selected ? 0.5 : 0, focused ? 1 : 0)
 }
 
 function buttonBorder(theme, tone, selected, enabled, hovered, pressed, focused) {
@@ -187,13 +206,16 @@ function buttonText(theme, tone, selected, enabled, hovered, pressed, focused) {
 function chipFill(theme, checked, enabled, hovered, pressed, focused) {
     if (!enabled)
         return theme.panelInset
+    var baseColor
     if (checked)
-        return pressed ? theme.accentPanel : theme.accentSurface
-    if (pressed || focused)
-        return theme.panelFocus
-    if (hovered)
-        return theme.panelHover
-    return theme.panelInset
+        baseColor = pressed ? theme.accentPanel : theme.accentSurface
+    else if (pressed || focused)
+        baseColor = mixColor(theme.panelFocus, theme.accentSurface, 0.18)
+    else if (hovered)
+        baseColor = mixColor(theme.panelHover, theme.accentSurface, 0.14)
+    else
+        baseColor = theme.panelInset
+    return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, checked ? 0.65 : 0, focused ? 1 : 0)
 }
 
 function chipBorder(theme, checked, enabled, hovered, pressed, focused) {
@@ -219,13 +241,16 @@ function chipText(theme, checked, enabled, hovered, pressed, focused) {
 function tabFill(theme, active, enabled, hovered, pressed, focused) {
     if (!enabled)
         return "transparent"
+    var baseColor
     if (active)
-        return pressed ? theme.accentPanel : theme.accentSurface
-    if (pressed || focused)
-        return theme.panelFocus
-    if (hovered)
-        return theme.panelHover
-    return "transparent"
+        baseColor = pressed ? theme.accentPanel : theme.accentSurface
+    else if (pressed || focused)
+        baseColor = mixColor(theme.panelFocus, theme.accentSurface, 0.14)
+    else if (hovered)
+        baseColor = mixColor(theme.panelHover, theme.accentSurface, 0.12)
+    else
+        baseColor = "transparent"
+    return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, active ? 0.4 : 0, focused ? 1 : 0)
 }
 
 function tabBorder(theme, active, enabled, hovered, pressed, focused) {
@@ -251,15 +276,18 @@ function tabText(theme, active, enabled, hovered, pressed, focused) {
 function cardFill(theme, accentTone, enabled, hovered, pressed, selected) {
     if (!enabled)
         return theme.panel
+    var baseColor
     if (selected)
-        return theme.accentPanel
-    if (accentTone)
-        return hovered || pressed ? theme.accentSurface : theme.panelRaised
-    if (pressed)
-        return theme.panelFocus
-    if (hovered)
-        return theme.panelHover
-    return theme.panelRaised
+        baseColor = theme.accentPanel
+    else if (accentTone)
+        baseColor = hovered || pressed ? theme.accentSurface : theme.panelRaised
+    else if (pressed)
+        baseColor = theme.panelFocus
+    else if (hovered)
+        baseColor = theme.panelHover
+    else
+        baseColor = theme.panelRaised
+    return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, selected ? 0.4 : 0, 0)
 }
 
 function cardBorder(theme, accentTone, enabled, hovered, pressed, selected) {
@@ -275,13 +303,16 @@ function cardBorder(theme, accentTone, enabled, hovered, pressed, selected) {
 function panelFill(theme, enabled, hovered, pressed, selected) {
     if (!enabled)
         return theme.panel
+    var baseColor
     if (selected)
-        return theme.accentPanel
-    if (pressed)
-        return theme.panelFocus
-    if (hovered)
-        return theme.panelHover
-    return theme.panelInset
+        baseColor = theme.accentPanel
+    else if (pressed)
+        baseColor = theme.panelFocus
+    else if (hovered)
+        baseColor = theme.panelHover
+    else
+        baseColor = theme.panelInset
+    return feedbackShade(baseColor, theme, hovered ? 1 : 0, pressed ? 1 : 0, selected ? 0.45 : 0, 0)
 }
 
 function panelBorder(theme, enabled, hovered, pressed, selected) {

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, Property, QElapsedTimer, QTimer, Signal
+from PySide6.QtCore import QEasingCurve, QObject, Property, QElapsedTimer, QTimer, Signal, Slot, Qt
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QColor, QCursor, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QCursor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtQml import qmlRegisterType
 from PySide6.QtQuick import QQuickItem, QQuickPaintedItem
 
@@ -29,8 +29,8 @@ class SignalAccentItem(QQuickPaintedItem):
         self._progress = 0.0
         self._from_progress = 0.0
         self._to_progress = 0.0
-        self._duration_ms = 220
-        self._curve = QEasingCurve(QEasingCurve.Type.InOutCubic)
+        self._duration_ms = 180
+        self._curve = QEasingCurve(QEasingCurve.Type.OutCubic)
         self._clock = QElapsedTimer()
         self._timer = QTimer(self)
         self._timer.setInterval(16)
@@ -380,6 +380,8 @@ class InteractionStateItem(QQuickItem):
     focusedInputChanged = Signal()
     busyInputChanged = Signal()
     selectedInputChanged = Signal()
+    targetItemChanged = Signal()
+    resetTokenChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -391,6 +393,8 @@ class InteractionStateItem(QQuickItem):
         self._busy_input = False
         self._selected_input = False
         self._resolved_state = "normal"
+        self._target_item = None
+        self._reset_token = 0
         self._window = None
         self._hover_progress = 0.0
         self._hover_from = 0.0
@@ -410,13 +414,25 @@ class InteractionStateItem(QQuickItem):
         self._engage_progress = 0.0
         self._engage_from = 0.0
         self._engage_to = 0.0
-        self._animation_duration_ms = 150
-        self._animation_curve = QEasingCurve(QEasingCurve.Type.InOutCubic)
+        self._channel_durations_ms = {
+            "hover": 150,
+            "press": 126,
+            "focus": 188,
+            "selection": 192,
+            "busy": 206,
+            "engage": 182,
+        }
+        self._animation_curve = QEasingCurve(QEasingCurve.Type.OutCubic)
         self._animation_clock = QElapsedTimer()
         self._animation_timer = QTimer(self)
         self._animation_timer.setInterval(16)
         self._animation_timer.timeout.connect(self._tick_animation)
+        self._verification_timer = QTimer(self)
+        self._verification_timer.setInterval(24)
+        self._verification_timer.timeout.connect(self._verify_transient_state)
         self.windowChanged.connect(self._on_window_changed)
+        self.visibleChanged.connect(self._on_visible_or_enabled_changed)
+        self.enabledChanged.connect(self._on_visible_or_enabled_changed)
 
     def _on_window_changed(self, window) -> None:
         if self._window is window:
@@ -440,17 +456,63 @@ class InteractionStateItem(QQuickItem):
             self._window = None
             return False
 
-    def _cursor_inside_parent(self) -> bool:
-        parent_item = self.parentItem()
-        if parent_item is None or self._window is None:
+    def _reference_item(self):
+        return self._target_item if self._target_item is not None else self.parentItem()
+
+    def _cursor_inside_target(self) -> bool:
+        target_item = self._reference_item()
+        if target_item is None or self._window is None:
             return True
         try:
             window_pos = self._window.mapFromGlobal(QCursor.pos())
             scene_pos = QPointF(float(window_pos.x()), float(window_pos.y()))
-            local_pos = parent_item.mapFromScene(scene_pos)
-            return parent_item.boundingRect().contains(local_pos)
+            local_pos = target_item.mapFromScene(scene_pos)
+            return target_item.boundingRect().contains(local_pos)
         except Exception:
             return True
+
+    def _pointer_pressed(self) -> bool:
+        try:
+            return bool(QGuiApplication.mouseButtons() & Qt.MouseButton.LeftButton)
+        except Exception:
+            return self._pressed_input
+
+    def _interaction_flags(self) -> dict[str, bool]:
+        interactive = self._enabled_input and self._visible_input and self._window_active()
+        return {
+            "hovered": interactive and self._hovered_input,
+            "pressed": interactive and self._pressed_input,
+            "focused": interactive and self._focused_input,
+            "active": interactive and (
+                self._pressed_input or self._busy_input or self._selected_input or self._focused_input
+            ),
+        }
+
+    def _emit_flag_changes(self, previous: dict[str, bool]) -> None:
+        current = self._interaction_flags()
+        if previous.get("hovered") != current["hovered"]:
+            self.hoveredChanged.emit()
+        if previous.get("pressed") != current["pressed"]:
+            self.pressedChanged.emit()
+        if previous.get("focused") != current["focused"]:
+            self.focusedChanged.emit()
+        if previous.get("active") != current["active"]:
+            self.activeChanged.emit()
+
+    def _clear_transient_inputs(self, clear_focus: bool = False) -> None:
+        cleared_hover = self._hovered_input
+        cleared_press = self._pressed_input
+        cleared_focus = clear_focus and self._focused_input
+        self._hovered_input = False
+        self._pressed_input = False
+        if clear_focus:
+            self._focused_input = False
+        if cleared_hover:
+            self.hoveredInputChanged.emit()
+        if cleared_press:
+            self.pressedInputChanged.emit()
+        if cleared_focus:
+            self.focusedInputChanged.emit()
 
     def _compute_state(self) -> str:
         if not self._enabled_input:
@@ -470,34 +532,67 @@ class InteractionStateItem(QQuickItem):
         return "normal"
 
     def _update_state(self) -> None:
-        cleared_hover = False
-        cleared_press = False
-        if self._hovered_input and not self._cursor_inside_parent():
-            self._hovered_input = False
-            cleared_hover = True
-        if (not self._visible_input or not self._window_active()) and self._hovered_input:
-            self._hovered_input = False
-            cleared_hover = True
-        if not self._visible_input or not self._window_active():
-            if self._pressed_input:
-                self._pressed_input = False
-                cleared_press = True
-
-        if cleared_hover:
-            self.hoveredInputChanged.emit()
-        if cleared_press:
-            self.pressedInputChanged.emit()
+        previous_flags = self._interaction_flags()
+        previous_state = self._resolved_state
+        self._coerce_transient_inputs()
 
         next_state = self._compute_state()
-        if next_state != self._resolved_state:
+        if next_state != previous_state:
             self._resolved_state = next_state
             self.resolvedStateChanged.emit()
-            self.hoveredChanged.emit()
-            self.pressedChanged.emit()
-            self.focusedChanged.emit()
-            self.activeChanged.emit()
-
+        self._emit_flag_changes(previous_flags)
         self._animate_progresses()
+        self._sync_verification_timer()
+
+    def _coerce_transient_inputs(self) -> None:
+        if not self._visible_input or not self._enabled_input or not self._window_active():
+            self._clear_transient_inputs()
+            return
+
+        if self._hovered_input and not self._cursor_inside_target():
+            self._hovered_input = False
+            self.hoveredInputChanged.emit()
+        if self._pressed_input and not self._pointer_pressed():
+            self._pressed_input = False
+            self.pressedInputChanged.emit()
+
+    def _sync_verification_timer(self) -> None:
+        engaged = (
+            self._hovered_input
+            or self._pressed_input
+            or self._focused_input
+            or self._animation_timer.isActive()
+            or self._hover_progress > 0.001
+            or self._press_progress > 0.001
+            or self._focus_progress > 0.001
+        )
+        if engaged:
+            if not self._verification_timer.isActive():
+                self._verification_timer.start()
+        elif self._verification_timer.isActive():
+            self._verification_timer.stop()
+
+    def _step_channel(self, current: float, start: float, end: float, elapsed_ms: int, duration_key: str) -> float:
+        duration_ms = max(1, int(self._channel_durations_ms.get(duration_key, 170)))
+        progress = min(1.0, elapsed_ms / float(duration_ms))
+        eased = self._animation_curve.valueForProgress(progress)
+        return start + (end - start) * eased
+
+    @Slot()
+    def clearTransientState(self) -> None:
+        previous_flags = self._interaction_flags()
+        previous_state = self._resolved_state
+        self._clear_transient_inputs()
+        next_state = self._compute_state()
+        if next_state != previous_state:
+            self._resolved_state = next_state
+            self.resolvedStateChanged.emit()
+        self._emit_flag_changes(previous_flags)
+        self._animate_progresses()
+        self._sync_verification_timer()
+
+    def _verify_transient_state(self) -> None:
+        self._update_state()
 
     def _animate_progresses(self) -> None:
         interactive = self._enabled_input and self._visible_input and self._window_active()
@@ -552,42 +647,53 @@ class InteractionStateItem(QQuickItem):
             self._animation_timer.stop()
             return
 
-        progress = min(1.0, self._animation_clock.elapsed() / float(self._animation_duration_ms))
-        eased = self._animation_curve.valueForProgress(progress)
+        elapsed_ms = self._animation_clock.elapsed()
 
-        next_hover = self._hover_from + (self._hover_to - self._hover_from) * eased
+        next_hover = self._step_channel(self._hover_progress, self._hover_from, self._hover_to, elapsed_ms, "hover")
         if abs(next_hover - self._hover_progress) > 0.0001:
             self._hover_progress = next_hover
             self.hoverProgressChanged.emit()
 
-        next_press = self._press_from + (self._press_to - self._press_from) * eased
+        next_press = self._step_channel(self._press_progress, self._press_from, self._press_to, elapsed_ms, "press")
         if abs(next_press - self._press_progress) > 0.0001:
             self._press_progress = next_press
             self.pressProgressChanged.emit()
 
-        next_focus = self._focus_from + (self._focus_to - self._focus_from) * eased
+        next_focus = self._step_channel(self._focus_progress, self._focus_from, self._focus_to, elapsed_ms, "focus")
         if abs(next_focus - self._focus_progress) > 0.0001:
             self._focus_progress = next_focus
             self.focusProgressChanged.emit()
 
-        next_selection = self._selection_from + (self._selection_to - self._selection_from) * eased
+        next_selection = self._step_channel(
+            self._selection_progress,
+            self._selection_from,
+            self._selection_to,
+            elapsed_ms,
+            "selection",
+        )
         if abs(next_selection - self._selection_progress) > 0.0001:
             self._selection_progress = next_selection
             self.selectionProgressChanged.emit()
 
-        next_busy = self._busy_from + (self._busy_to - self._busy_from) * eased
+        next_busy = self._step_channel(self._busy_progress, self._busy_from, self._busy_to, elapsed_ms, "busy")
         if abs(next_busy - self._busy_progress) > 0.0001:
             self._busy_progress = next_busy
             self.busyProgressChanged.emit()
 
-        next_engage = self._engage_from + (self._engage_to - self._engage_from) * eased
+        next_engage = self._step_channel(
+            self._engage_progress,
+            self._engage_from,
+            self._engage_to,
+            elapsed_ms,
+            "engage",
+        )
         if abs(next_engage - self._engage_progress) > 0.0001:
             self._engage_progress = next_engage
             self.engageProgressChanged.emit()
 
         self.visualProgressChanged.emit()
 
-        if progress >= 1.0:
+        if elapsed_ms >= max(self._channel_durations_ms.values()):
             self._animation_timer.stop()
 
             if abs(self._hover_progress - self._hover_to) > 0.0001:
@@ -610,21 +716,22 @@ class InteractionStateItem(QQuickItem):
                 self.engageProgressChanged.emit()
 
             self.visualProgressChanged.emit()
+            self._sync_verification_timer()
 
     def getResolvedState(self) -> str:
         return self._resolved_state
 
     def getActive(self) -> bool:
-        return self._resolved_state in {"pressed", "busy", "selected", "focused"}
+        return self._interaction_flags()["active"]
 
     def getHovered(self) -> bool:
-        return self._resolved_state == "hover"
+        return self._interaction_flags()["hovered"]
 
     def getPressed(self) -> bool:
-        return self._resolved_state == "pressed"
+        return self._interaction_flags()["pressed"]
 
     def getFocused(self) -> bool:
-        return self._resolved_state == "focused"
+        return self._interaction_flags()["focused"]
 
     def getEnabledInput(self) -> bool:
         return self._enabled_input
@@ -695,6 +802,66 @@ class InteractionStateItem(QQuickItem):
         self._selected_input = value
         self.selectedInputChanged.emit()
         self._update_state()
+
+    def _detach_target_item(self) -> None:
+        if self._target_item is None:
+            return
+        for signal_name in ("visibleChanged", "enabledChanged", "destroyed"):
+            try:
+                getattr(self._target_item, signal_name).disconnect(self._update_state)
+            except Exception:
+                pass
+        try:
+            self._target_item.destroyed.disconnect(self._on_target_destroyed)
+        except Exception:
+            pass
+
+    def _attach_target_item(self) -> None:
+        if self._target_item is None:
+            return
+        for signal_name in ("visibleChanged", "enabledChanged"):
+            try:
+                getattr(self._target_item, signal_name).connect(self._update_state)
+            except Exception:
+                continue
+        try:
+            self._target_item.destroyed.connect(self._on_target_destroyed)
+        except Exception:
+            pass
+
+    def _on_target_destroyed(self, *_args) -> None:
+        self._target_item = None
+        self.targetItemChanged.emit()
+        self.clearTransientState()
+
+    def getTargetItem(self):
+        return self._target_item
+
+    def setTargetItem(self, value) -> None:
+        if self._target_item is value:
+            return
+        self._detach_target_item()
+        self._target_item = value
+        self._attach_target_item()
+        self.targetItemChanged.emit()
+        self._update_state()
+
+    def getResetToken(self) -> int:
+        return self._reset_token
+
+    def setResetToken(self, value: int) -> None:
+        next_value = int(value)
+        if self._reset_token == next_value:
+            return
+        self._reset_token = next_value
+        self.resetTokenChanged.emit()
+        self.clearTransientState()
+
+    def _on_visible_or_enabled_changed(self) -> None:
+        if not self.isVisible() or not self.isEnabled():
+            self.clearTransientState()
+        else:
+            self._update_state()
 
     def getHoverProgress(self) -> float:
         return self._hover_progress
@@ -781,6 +948,8 @@ class InteractionStateItem(QQuickItem):
     focusedInput = Property(bool, getFocusedInput, setFocusedInput, notify=focusedInputChanged)
     busyInput = Property(bool, getBusyInput, setBusyInput, notify=busyInputChanged)
     selectedInput = Property(bool, getSelectedInput, setSelectedInput, notify=selectedInputChanged)
+    targetItem = Property(QObject, getTargetItem, setTargetItem, notify=targetItemChanged)
+    resetToken = Property(int, getResetToken, setResetToken, notify=resetTokenChanged)
 
 
 class DisclosureMotionItem(QQuickItem):

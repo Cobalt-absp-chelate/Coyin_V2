@@ -16,18 +16,7 @@ Item {
 
     default property alias sectionContent: bodyColumn.data
     implicitHeight: container.implicitHeight
-    readonly property string toggleLabel: root.expanded ? "收起" : "展开"
-
-    InteractionState {
-        id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: expanderHover.hovered
-        pressedInput: expanderTap.active
-        focusedInput: false
-        busyInput: false
-        selectedInput: root.expanded
-    }
+    readonly property string toggleLabel: root.expanded ? "▾" : "▸"
 
     Rectangle {
         id: container
@@ -63,6 +52,17 @@ Item {
 
                 Behavior on border.color {
                     ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+                }
+
+                InteractionTracker {
+                    id: interaction
+                    targetItem: header
+                    tapEnabled: true
+                    selected: root.expanded
+                    onTapped: {
+                        root.expanded = !root.expanded
+                        root.toggled(root.expanded)
+                    }
                 }
 
                 SignalAccent {
@@ -130,20 +130,6 @@ Item {
                     }
                 }
 
-                HoverHandler {
-                    id: expanderHover
-                    enabled: root.visible
-                    cursorShape: Qt.PointingHandCursor
-                }
-
-                TapHandler {
-                    id: expanderTap
-                    enabled: root.visible
-                    onTapped: {
-                        root.expanded = !root.expanded
-                        root.toggled(root.expanded)
-                    }
-                }
             }
 
             Item {

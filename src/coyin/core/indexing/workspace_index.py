@@ -355,12 +355,21 @@ class WorkspaceIndexCore:
     def settings_summary_rows(self) -> list[dict[str, Any]]:
         active_provider = self.workspace.active_provider()
         theme_mode = self.workspace.state.ui.theme
+        banner_enabled = self.workspace.state.ui.banner_parallax_enabled
+        preset_titles = {
+            "preset_academic": "浅蓝学术科技风",
+            "preset_graph": "深蓝知识图谱风",
+            "preset_warm": "暖色纸张书桌风",
+            "preset_glass": "极简玻璃空间风",
+        }
         return [
             {
                 "entry_id": "appearance",
                 "title": "界面外观",
                 "value": "浅色模式" if theme_mode == "light" else "夜间模式",
-                "detail": "深蓝层级与小圆角矩形",
+                "detail": ("顶部横幅景深已启用" if banner_enabled else "顶部横幅景深已关闭")
+                + "  ·  "
+                + preset_titles.get(self.workspace.state.ui.banner_preset_id, "默认横幅"),
                 "state": theme_mode,
             },
             {

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240">
+            <defs>
+              <linearGradient id="topMask" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <rect width="1600" height="82" fill="url(#topMask)"/>
+            <g fill="#d7efff" fill-opacity="0.62">
+              <circle cx="1226" cy="58" r="5"/>
+              <circle cx="1282" cy="70" r="4"/>
+              <circle cx="1362" cy="94" r="5"/>
+              <circle cx="1428" cy="80" r="4"/>
+              <circle cx="256" cy="72" r="4"/>
+            </g>
+            <path d="M1120 32H1460" stroke="#dbf2ff" stroke-opacity="0.46" stroke-width="1.6"/>
+            <path d="M1108 166H1472" stroke="#dbf2ff" stroke-opacity="0.30" stroke-width="1.4"/>
+            </svg>

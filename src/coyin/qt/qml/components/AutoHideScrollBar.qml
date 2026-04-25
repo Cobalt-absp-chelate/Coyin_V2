@@ -16,9 +16,6 @@ ScrollBar {
     contentItem: Rectangle {
         implicitWidth: root.orientation === Qt.Vertical ? 8 : 52
         implicitHeight: root.orientation === Qt.Vertical ? 52 : 8
-        width: root.orientation === Qt.Vertical ? 8 : Math.max(34, parent.width - 6)
-        height: root.orientation === Qt.Vertical ? Math.max(34, parent.height - 6) : 8
-        anchors.centerIn: parent
         radius: 3
         color: root.theme.anchor
         opacity: root.enabled ? 0.78 : 0.42

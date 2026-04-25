@@ -319,15 +319,15 @@ Item {
                                     ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
                                 }
 
-                                InteractionState {
+                                InteractionTracker {
                                     id: recentSearchInteraction
-                                    enabledInput: root.enabled
-                                    visibleInput: root.visible
-                                    hoveredInput: recentSearchHover.hovered
-                                    pressedInput: recentSearchTap.active
-                                    focusedInput: false
-                                    busyInput: false
-                                    selectedInput: false
+                                    targetItem: parent
+                                    tapEnabled: true
+                                    onTapped: {
+                                        searchField.text = label
+                                        if (root.controller)
+                                            root.controller.runRecentSearch(label)
+                                    }
                                 }
 
                                 Text {
@@ -354,21 +354,6 @@ Item {
                                     radius: 4
                                 }
 
-                                HoverHandler {
-                                    id: recentSearchHover
-                                    enabled: root.visible
-                                    cursorShape: Qt.PointingHandCursor
-                                }
-
-                                TapHandler {
-                                    id: recentSearchTap
-                                    enabled: root.visible
-                                    onTapped: {
-                                        searchField.text = label
-                                        if (root.controller)
-                                            root.controller.runRecentSearch(label)
-                                    }
-                                }
                             }
                         }
                     }

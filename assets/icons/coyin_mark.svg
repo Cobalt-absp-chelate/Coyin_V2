@@ -1,6 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect x="12" y="18" width="104" height="92" rx="14" fill="#152536"/>
-  <rect x="24" y="30" width="80" height="68" rx="10" fill="#eff3f7"/>
-  <path d="M87 44H58c-11 0-20 9-20 20s9 20 20 20h29" fill="none" stroke="#1f4d6d" stroke-width="12" stroke-linecap="square"/>
-  <rect x="75" y="52" width="13" height="24" rx="2" fill="#d38b35"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f4f7b"/>
+      <stop offset="52%" stop-color="#186a9b"/>
+      <stop offset="100%" stop-color="#0f3e63"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f9fcff"/>
+      <stop offset="100%" stop-color="#dfeaf4"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b8e0ff"/>
+      <stop offset="100%" stop-color="#77b7e6"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="54" fill="url(#bg)"/>
+  <path d="M71 58h86l34 34v106c0 12-10 22-22 22H71c-12 0-22-10-22-22V80c0-12 10-22 22-22Z" fill="url(#page)"/>
+  <path d="M157 58v30c0 9 7 16 16 16h30" fill="#d1e1ee"/>
+  <path d="M172 58v24c0 7 5 12 12 12h24" fill="#f7fbff"/>
+  <rect x="78" y="106" width="68" height="11" rx="5.5" fill="#7aa8ca" opacity=".9"/>
+  <rect x="78" y="128" width="86" height="9" rx="4.5" fill="#95b7d4" opacity=".88"/>
+  <rect x="78" y="146" width="72" height="9" rx="4.5" fill="#95b7d4" opacity=".78"/>
+  <path d="M118 168c18-17 39-24 61-22 19 2 34 10 47 23" fill="none" stroke="url(#accent)" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="106" cy="178" r="11" fill="#d8f1ff"/>
+  <circle cx="166" cy="154" r="10" fill="#9fd1f4"/>
+  <circle cx="212" cy="184" r="12" fill="#d8f1ff"/>
+  <path d="M106 178 166 154 212 184" fill="none" stroke="#d8f1ff" stroke-width="5" stroke-linecap="round" opacity=".82"/>
 </svg>

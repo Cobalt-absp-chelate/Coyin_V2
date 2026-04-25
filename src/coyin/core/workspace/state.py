@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any
 
 from coyin.core.documents.models import DocumentDescriptor
@@ -97,6 +97,23 @@ class ArtifactLink:
 class UiState:
     theme: str = "light"
     sidebar_collapsed: bool = False
+    banner_parallax_enabled: bool = True
+    banner_preset_id: str = "preset_academic"
+    custom_banner_background_path: str = ""
+    custom_banner_midground_path: str = ""
+    custom_banner_foreground_path: str = ""
+    custom_banner_overlay_path: str = ""
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any] | None) -> "UiState":
+        data = dict(payload or {})
+        if "depth_effect_enabled" in data and "banner_parallax_enabled" not in data:
+            data["banner_parallax_enabled"] = bool(data.get("depth_effect_enabled"))
+        allowed = {field.name for field in fields(cls)}
+        filtered = {key: value for key, value in data.items() if key in allowed}
+        if not filtered.get("banner_preset_id"):
+            filtered["banner_preset_id"] = "preset_academic"
+        return cls(**filtered)
 
 
 @dataclass(slots=True)

@@ -13,6 +13,7 @@ from coyin.paths import AppPaths
 from coyin.qt.controllers.main_controller import MainController
 from coyin.qt.controllers.shell_state import ShellChromeController
 from coyin.qt.quick.chrome_effects import register_qml_types
+from coyin.qt.widgets.parallax_banner import ensure_default_banner_assets, register_qml_types as register_banner_qml_types
 
 
 def _native_chrome_enabled() -> bool:
@@ -54,6 +55,7 @@ def main() -> int:
             break
 
     services = build_services(paths)
+    ensure_default_banner_assets(paths.banner_assets)
     controller = MainController(services)
     shell_controller = ShellChromeController()
     controller.setParent(app)
@@ -63,6 +65,7 @@ def main() -> int:
         pass
     else:
         register_qml_types()
+    register_banner_qml_types()
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("mainController", controller)
     engine.rootContext().setContextProperty("shellController", shell_controller)

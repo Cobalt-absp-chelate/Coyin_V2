@@ -22,6 +22,7 @@ from coyin.qt.controllers.main_controller_coordinators import (
 from coyin.qt.controllers.task_runner import TaskRunner
 from coyin.qt.models.record_list_model import RecordListModel
 from coyin.qt.widgets.latex_window import LatexWindow
+from coyin.qt.widgets.markdown_window import MarkdownWindow
 from coyin.qt.widgets.reader_window import ReaderWindow
 from coyin.qt.widgets.theme import qml_tokens
 from coyin.qt.widgets.writer_window import WriterWindow
@@ -55,6 +56,7 @@ class MainController(QObject):
         self._assistant_messages: list[dict[str, str]] = []
         self._reader_windows: list[ReaderWindow] = []
         self._writer_windows: list[WriterWindow] = []
+        self._markdown_windows: list[MarkdownWindow] = []
         self._latex_windows: list[LatexWindow] = []
         self.library = LibraryCoordinator(self)
         self.search = SearchCoordinator(self)
@@ -488,6 +490,38 @@ class MainController(QObject):
     def themeMode(self):
         return self.services.workspace.state.ui.theme
 
+    @Property(bool, notify=themeChanged)
+    def bannerParallaxEnabled(self):
+        return self.services.workspace.state.ui.banner_parallax_enabled
+
+    @Property(str, notify=themeChanged)
+    def bannerPresetId(self):
+        return self.services.workspace.state.ui.banner_preset_id
+
+    @Property(str, constant=True)
+    def bannerAssetRoot(self):
+        return str(self.services.paths.banner_assets)
+
+    @Property(str, notify=themeChanged)
+    def customBannerBackgroundPath(self):
+        return self.services.workspace.state.ui.custom_banner_background_path
+
+    @Property(str, notify=themeChanged)
+    def customBannerMidgroundPath(self):
+        return self.services.workspace.state.ui.custom_banner_midground_path
+
+    @Property(str, notify=themeChanged)
+    def customBannerForegroundPath(self):
+        return self.services.workspace.state.ui.custom_banner_foreground_path
+
+    @Property(str, notify=themeChanged)
+    def customBannerOverlayPath(self):
+        return self.services.workspace.state.ui.custom_banner_overlay_path
+
+    @Property("QVariantList", notify=themeChanged)
+    def bannerPresetEntries(self):
+        return self.settings.banner_preset_entries()
+
     @Property("QVariantList", notify=assistantChanged)
     def assistantMessages(self):
         return list(self._assistant_messages)
@@ -558,6 +592,10 @@ class MainController(QObject):
     @Slot(str)
     def openDocument(self, document_id: str):
         self.library.open_document(document_id)
+
+    @Slot(str)
+    def deleteDocument(self, document_id: str):
+        self.library.delete_document(document_id)
 
     def open_reader_document(self, document_id: str, target: ReaderWindow | None = None):
         self.library.open_reader_document(document_id, target=target)
@@ -688,6 +726,22 @@ class MainController(QObject):
     @Slot()
     def toggleTheme(self):
         self.settings.toggle_theme()
+
+    @Slot(bool)
+    def setBannerParallaxEnabled(self, enabled: bool):
+        self.settings.set_banner_parallax_enabled(enabled)
+
+    @Slot(str)
+    def setBannerPreset(self, preset_id: str):
+        self.settings.set_banner_preset(preset_id)
+
+    @Slot(str)
+    def chooseCustomBannerLayer(self, layer_name: str):
+        self.settings.choose_custom_banner_layer(layer_name)
+
+    @Slot()
+    def clearCustomBannerLayers(self):
+        self.settings.clear_custom_banner_layers()
 
     @Slot(str)
     def askAssistant(self, question: str):

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Coyin.Chrome 1.0
 import "../support/UiDefaults.js" as UiDefaults
+import "../support/MotionCore.js" as MotionCore
 
 Rectangle {
     id: root
@@ -14,28 +15,42 @@ Rectangle {
     property color accentColor: UiDefaults.theme().anchor
     property color accentSoft: UiDefaults.theme().accentSoft
     property bool interactive: false
+    readonly property real surfaceScale: MotionCore.surfaceScale(interaction.hoverProgress, interaction.focusProgress, interaction.pressProgress, interaction.settleStrength, true)
+    readonly property color shadedPanelColor: root.interactive
+        ? MotionCore.feedbackShade(root.panelColor, UiDefaults.safeTheme({
+            "mode": UiDefaults.theme().mode,
+            "background": root.panelColor,
+            "textMuted": root.captionColor
+        }), interaction.hoverProgress, interaction.pressProgress, 0, interaction.focusProgress)
+        : root.panelColor
 
     radius: 6
-    color: panelColor
+    color: shadedPanelColor
     border.color: root.interactive && interaction.hovered ? root.accentColor : borderColor
     border.width: 1
     implicitHeight: headerColumn.implicitHeight + content.implicitHeight + 44
+    scale: root.interactive ? surfaceScale : 1.0
+    transformOrigin: Item.Center
 
     Behavior on border.color {
-        ColorAnimation { duration: 110 }
+        ColorAnimation { duration: MotionCore.duration("fast", UiDefaults.theme()) }
+    }
+
+    Behavior on color {
+        ColorAnimation { duration: MotionCore.duration("fast", UiDefaults.theme()) }
+    }
+
+    Behavior on scale {
+        NumberAnimation { duration: MotionCore.duration("fast", UiDefaults.theme()); easing.type: Easing.OutCubic }
     }
 
     default property alias cardContent: content.data
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: hoverHandler.hovered
-        pressedInput: false
-        focusedInput: false
-        busyInput: false
-        selectedInput: false
+        targetItem: root
+        interactive: root.interactive
+        cursorEnabled: false
     }
 
     SignalAccent {
@@ -48,11 +63,6 @@ Rectangle {
         neutralColor: root.accentSoft
         edge: "frame"
         radius: root.radius
-    }
-
-    HoverHandler {
-        id: hoverHandler
-        enabled: root.interactive && root.visible
     }
 
     Column {

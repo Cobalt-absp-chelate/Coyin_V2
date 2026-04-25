@@ -16,23 +16,41 @@ TextField {
     font.pixelSize: 12
     selectByMouse: true
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: hoverHandler.hovered
-        pressedInput: false
+        targetItem: root
+        cursorShape: Qt.IBeamCursor
+        busy: root.busy
+        selected: root.selected
         focusedInput: root.activeFocus
-        busyInput: root.busy
-        selectedInput: root.selected
     }
 
     background: Rectangle {
-        radius: MotionCore.tokens().radiusSmall
-        color: root.enabled ? root.theme.panelInset : root.theme.panel
-        border.color: root.activeFocus || root.selected ? root.theme.accentOutline : root.theme.border
+        radius: MotionCore.tokens(root.theme).radiusSmall
+        color: MotionCore.mixColor(
+            root.enabled ? root.theme.panelInset : root.theme.panel,
+            root.theme.panelFocus,
+            interaction.focusProgress * 0.28 + interaction.hoverProgress * 0.10 + interaction.selectionProgress * 0.18
+        )
+        border.color: MotionCore.mixColor(
+            root.theme.border,
+            root.theme.accentOutline,
+            interaction.frameStrength * 0.52 + interaction.settleStrength * 0.24
+        )
         border.width: 1
         opacity: root.enabled ? 1.0 : 0.74
+
+        Behavior on color {
+            ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+        }
+
+        Behavior on border.color {
+            ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
+        }
+
+        Behavior on opacity {
+            NumberAnimation { duration: MotionCore.duration("immediate", root.theme) }
+        }
 
         SignalAccent {
             anchors.fill: parent
@@ -42,12 +60,8 @@ TextField {
             accentColor: root.theme.anchor
             neutralColor: root.theme.accentSoft
             edge: "bottom"
-            radius: MotionCore.tokens().radiusSmall
+            radius: MotionCore.tokens(root.theme).radiusSmall
         }
 
-        HoverHandler {
-            id: hoverHandler
-            enabled: root.enabled && root.visible
-        }
     }
 }

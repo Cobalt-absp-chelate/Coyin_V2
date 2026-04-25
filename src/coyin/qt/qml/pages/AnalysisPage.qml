@@ -255,15 +255,12 @@ ScrollView {
                                     ColorAnimation { duration: MotionCore.duration("fast", root.theme) }
                                 }
 
-                                InteractionState {
+                                InteractionTracker {
                                     id: historyInteraction
-                                    enabledInput: root.enabled
-                                    visibleInput: root.visible
-                                    hoveredInput: historyHover.hovered
-                                    pressedInput: historyTap.active
-                                    focusedInput: false
-                                    busyInput: false
-                                    selectedInput: current
+                                    targetItem: parent
+                                    tapEnabled: true
+                                    selected: current
+                                    onTapped: if (root.controller && entry.report_id) root.controller.focusAnalysis(entry.report_id)
                                 }
 
                                 Column {
@@ -299,17 +296,6 @@ ScrollView {
                                     radius: root.theme.radiusSmall
                                 }
 
-                                HoverHandler {
-                                    id: historyHover
-                                    enabled: root.visible
-                                    cursorShape: Qt.PointingHandCursor
-                                }
-
-                                TapHandler {
-                                    id: historyTap
-                                    enabled: root.visible
-                                    onTapped: if (root.controller && entry.report_id) root.controller.focusAnalysis(entry.report_id)
-                                }
                             }
                         }
 

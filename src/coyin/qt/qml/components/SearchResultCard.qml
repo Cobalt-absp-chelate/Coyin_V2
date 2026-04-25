@@ -30,15 +30,10 @@ Rectangle {
         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
     }
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: hoverHandler.hovered
-        pressedInput: false
-        focusedInput: false
-        busyInput: false
-        selectedInput: false
+        targetItem: root
+        cursorEnabled: false
     }
 
     SignalAccent {
@@ -50,11 +45,6 @@ Rectangle {
         neutralColor: theme.accentSoft
         edge: "frame"
         radius: motion.radiusMedium
-    }
-
-    HoverHandler {
-        id: hoverHandler
-        enabled: root.visible
     }
 
     Rectangle {

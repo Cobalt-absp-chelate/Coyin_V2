@@ -27,15 +27,14 @@ Control {
     implicitHeight: 34
     implicitWidth: Math.max(92, label.implicitWidth + 28 + (busy ? 18 : 0))
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: hoverHandler.hovered
-        pressedInput: clickHandler.active
+        targetItem: root
+        tapEnabled: true
+        busy: root.busy
+        selected: root.selected
         focusedInput: root.activeFocus
-        busyInput: root.busy
-        selectedInput: root.selected
+        onTapped: root.clicked()
     }
 
     background: Rectangle {
@@ -129,15 +128,4 @@ Control {
         }
     }
 
-    HoverHandler {
-        id: hoverHandler
-        enabled: root.enabled && root.visible && !root.busy
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-    }
-
-    TapHandler {
-        id: clickHandler
-        enabled: root.enabled && root.visible && !root.busy
-        onTapped: root.clicked()
-    }
 }

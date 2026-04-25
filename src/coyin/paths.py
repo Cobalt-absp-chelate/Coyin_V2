@@ -34,6 +34,8 @@ class AppPaths:
     exports: Path
     downloads: Path
     latex_runs: Path
+    banner_assets: Path
+    banner_custom: Path
 
     @classmethod
     def discover(cls) -> "AppPaths":
@@ -43,7 +45,9 @@ class AppPaths:
         exports = runtime / "exports"
         downloads = runtime / "downloads"
         latex_runs = runtime / "latex"
-        for path in (runtime, drafts, exports, downloads, latex_runs):
+        banner_assets = (runtime / "default_banners") if getattr(sys, "frozen", False) else (root / "assets" / "banners")
+        banner_custom = runtime / "banner" / "custom"
+        for path in (runtime, drafts, exports, downloads, latex_runs, banner_assets, banner_custom):
             path.mkdir(parents=True, exist_ok=True)
         return cls(
             root=root,
@@ -57,4 +61,6 @@ class AppPaths:
             exports=exports,
             downloads=downloads,
             latex_runs=latex_runs,
+            banner_assets=banner_assets,
+            banner_custom=banner_custom,
         )

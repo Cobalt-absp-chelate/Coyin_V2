@@ -7,6 +7,7 @@ from PySide6.QtGui import QUndoCommand
 
 from coyin.core.common import now_iso
 from coyin.core.documents.models import DocumentDescriptor, DocumentKind
+from coyin.core.workspace.state import ArtifactLink
 from coyin.core.workspace.service import WorkspaceService
 
 
@@ -124,6 +125,56 @@ class CreateDraftDocumentCommand(QUndoCommand):
                 path.unlink()
             except OSError:
                 pass
+
+
+class DeleteDocumentCommand(QUndoCommand):
+    def __init__(self, workspace: WorkspaceService, descriptor: DocumentDescriptor):
+        super().__init__("删除文档")
+        self.workspace = workspace
+        self.descriptor = deepcopy(descriptor)
+        self._backup_bytes = b""
+        self._backup_text = ""
+        self._backup_mode = "binary"
+        self._link_ids: list[str] = []
+        self._backup_links: list[ArtifactLink] = []
+
+    def redo(self) -> None:
+        if not self._link_ids:
+            self._backup_links = [
+                deepcopy(link)
+                for link in self.workspace.links_for_artifact("document", self.descriptor.document_id)
+            ]
+            self._link_ids = [link.link_id for link in self._backup_links]
+        path = Path(self.descriptor.path)
+        if path.exists() and not self._backup_bytes and not self._backup_text:
+            try:
+                self._backup_bytes = path.read_bytes()
+                self._backup_mode = "binary"
+            except Exception:
+                try:
+                    self._backup_text = path.read_text(encoding="utf-8", errors="ignore")
+                    self._backup_mode = "text"
+                except Exception:
+                    self._backup_bytes = b""
+        self.workspace.remove_document(self.descriptor.document_id)
+        if self._link_ids:
+            self.workspace.remove_links(self._link_ids)
+        if path.exists():
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+    def undo(self) -> None:
+        path = Path(self.descriptor.path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if self._backup_mode == "text":
+            path.write_text(self._backup_text, encoding="utf-8")
+        else:
+            path.write_bytes(self._backup_bytes)
+        self.workspace.add_documents([deepcopy(self.descriptor)])
+        for link in self._backup_links:
+            self.workspace.add_link(deepcopy(link))
 
 
 def _plain_excerpt(html: str) -> str:

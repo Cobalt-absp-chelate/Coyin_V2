@@ -8,23 +8,26 @@ import weakref
 import requests
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QFileDialog, QInputDialog
+from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
 
 from coyin.core.analysis.models import AnalysisReport
 from coyin.core.commands.analysis_commands import CreateLatexSessionCommand, SaveAnalysisToNoteCommand
 from coyin.core.commands.document_commands import (
     CreateDraftDocumentCommand,
+    DeleteDocumentCommand,
     RenameDocumentCommand,
     ToggleDocumentFavoriteCommand,
 )
 from coyin.core.commands.library_commands import ImportDocumentsCommand
 from coyin.core.commands.plugin_commands import TogglePluginCommand
-from coyin.core.common import now_iso, short_id
+from coyin.core.common import now_iso, short_id, slugify
 from coyin.core.documents.models import DocumentDescriptor, DocumentKind, SearchResult
 from coyin.core.tasks import TaskRequest
 from coyin.core.workspace.state import AnalysisReportState, ProviderConfig
 from coyin.native.bridge import native_available
 from coyin.qt.widgets.latex_window import LatexWindow
+from coyin.qt.widgets.markdown_window import MarkdownWindow
+from coyin.qt.widgets.parallax_banner import banner_preset_entries, banner_preset_ids, default_banner_preset_id
 from coyin.qt.widgets.reader_window import ReaderServices, ReaderWindow
 from coyin.qt.widgets.theme import base_stylesheet
 from coyin.qt.widgets.writer_window import WriterWindow
@@ -119,10 +122,46 @@ class LibraryCoordinator(_Coordinator):
         descriptor = self.services.workspace.find_document(document_id)
         if not descriptor:
             return
-        if descriptor.kind == DocumentKind.DRAFT.value:
+        if descriptor.kind in {DocumentKind.DRAFT.value, DocumentKind.MARKDOWN.value, DocumentKind.DOCX.value}:
             self.host.writing.open_writer_document(document_id)
             return
         self.open_reader_document(document_id)
+
+    def delete_document(self, document_id: str) -> None:
+        descriptor = self.services.workspace.find_document(document_id)
+        if not descriptor:
+            return
+        reply = QMessageBox.question(
+            None,
+            "删除文档",
+            f"确定删除《{descriptor.title}》？\n这会同时删除磁盘上的文件。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._close_document_windows(document_id)
+        self.services.command_bus.execute(DeleteDocumentCommand(self.services.workspace, descriptor))
+        sidecar = self.host.writing.docx_cache_path(descriptor)
+        if sidecar.exists():
+            try:
+                sidecar.unlink()
+            except OSError:
+                pass
+        self.host._set_status(f"已删除《{descriptor.title}》。")
+
+    def _close_document_windows(self, document_id: str) -> None:
+        for window in list(self.host._reader_windows):
+            for index in range(window.tabs.count()):
+                widget = window.tabs.widget(index)
+                if getattr(widget, "document_id", "") == document_id:
+                    window._close_tab(index)
+                    break
+        for window in list(self.host._writer_windows):
+            if getattr(window.descriptor, "document_id", "") == document_id:
+                window.close()
+        for window in list(self.host._markdown_windows):
+            if getattr(window.descriptor, "document_id", "") == document_id:
+                window.close()
 
     def open_reader_document(self, document_id: str, target: ReaderWindow | None = None) -> None:
         descriptor = self.services.workspace.find_document(document_id)
@@ -221,15 +260,26 @@ class LibraryCoordinator(_Coordinator):
 
 class WritingLatexCoordinator(_Coordinator):
     def create_writer_document(self) -> None:
-        title = f"文档 {len([doc for doc in self.services.workspace.state.documents if doc.kind == DocumentKind.DRAFT.value]) + 1}"
-        descriptor = self.host._create_draft_descriptor(title, workflow_label="空白草稿")
-        command = CreateDraftDocumentCommand(
-            workspace=self.services.workspace,
-            descriptor=descriptor,
-            html="<h1>新建文档</h1><p></p>",
-            text="创建空白写作草稿",
-        )
-        self.services.command_bus.execute(command)
+        options = ["Markdown 文档 (.md)", "DOCX 文档 (.docx)"]
+        choice, accepted = QInputDialog.getItem(None, "新建文档", "选择类型：", options, 0, False)
+        if not accepted or not choice:
+            return
+        title, accepted = QInputDialog.getText(None, "新建文档", "标题：", text="未命名文档")
+        if not accepted or not title.strip():
+            return
+        title = title.strip()
+        stem = slugify(title)
+        if choice.startswith("Markdown"):
+            path = self.services.paths.drafts / f"{stem}-{short_id('md')}.md"
+            descriptor = self.services.repository.create_descriptor_for_kind(path, title, DocumentKind.MARKDOWN)
+            descriptor.workflow_label = "Markdown 文档"
+            path.write_text(f"# {title}\n\n", encoding="utf-8")
+        else:
+            path = self.services.paths.drafts / f"{stem}-{short_id('docx')}.docx"
+            descriptor = self.services.repository.create_descriptor_for_kind(path, title, DocumentKind.DOCX)
+            descriptor.workflow_label = "DOCX 文档"
+            self.services.exporter.export_docx(title, f"<h1>{title}</h1><p></p>", path)
+        self.services.workspace.add_documents([descriptor])
         self.open_writer_document(descriptor.document_id)
 
     def create_draft_from_document(self, document_id: str) -> None:
@@ -260,6 +310,23 @@ class WritingLatexCoordinator(_Coordinator):
         if not descriptor:
             return
         self.services.workspace.set_current_draft(document_id)
+        if descriptor.kind == DocumentKind.MARKDOWN.value:
+            window = MarkdownWindow(descriptor=descriptor, workspace=self.services.workspace, theme_mode=self.host.themeMode)
+            self.host._track_window(window, self.host._markdown_windows)
+            window.show()
+            self.services.workspace.register_recent_writer(document_id)
+            return
+        initial_html = ""
+        document_mode = "draft"
+        if descriptor.kind == DocumentKind.DOCX.value:
+            document_mode = "docx"
+            cache_path = self.docx_cache_path(descriptor)
+            if cache_path.exists():
+                initial_html = cache_path.read_text(encoding="utf-8", errors="ignore")
+            else:
+                snapshot = self.services.repository.load_snapshot(descriptor)
+                paragraphs = "".join(f"<p>{line}</p>" for line in snapshot.raw_text.splitlines() if line.strip())
+                initial_html = f"<h1>{descriptor.title}</h1>{paragraphs}"
         window = WriterWindow(
             descriptor=descriptor,
             exporter=self.services.exporter,
@@ -271,10 +338,15 @@ class WritingLatexCoordinator(_Coordinator):
             task_runner=self.host.task_runner,
             launch_linked_latex=self.open_draft_in_latex,
             theme_mode=self.host.themeMode,
+            document_mode=document_mode,
+            initial_html=initial_html,
         )
         self.host._track_window(window, self.host._writer_windows)
         window.show()
         self.services.workspace.register_recent_writer(document_id)
+
+    def docx_cache_path(self, descriptor: DocumentDescriptor) -> Path:
+        return Path(str(descriptor.path) + ".coyin.html")
 
     def open_latex_window(self) -> None:
         session = self.host._create_latex_session_state("研究笔记", "basic")
@@ -768,10 +840,15 @@ class SettingsCoordinator(_Coordinator):
             "downloadsDir": str(self.services.paths.downloads),
             "latexDir": str(self.services.paths.latex_runs),
             "pluginsDir": str(self.services.paths.plugins),
+            "bannerPresetDir": str(self.services.paths.banner_assets),
+            "bannerCustomDir": str(self.services.paths.banner_custom),
             "templateCount": len(list(self.services.paths.templates.glob("latex/*.tex"))),
             "nativeAvailable": native_available(),
             "xelatexAvailable": bool(shutil.which("xelatex")),
         }
+
+    def banner_preset_entries(self) -> list[dict[str, str]]:
+        return banner_preset_entries()
 
     def set_plugin_enabled(self, plugin_id: str, enabled: bool) -> None:
         try:
@@ -851,6 +928,95 @@ class SettingsCoordinator(_Coordinator):
                     window.setStyleSheet(base_stylesheet(self.host.themeMode))
             except Exception:
                 continue
+
+        for window in [*self.host._markdown_windows]:
+            try:
+                if hasattr(window, "apply_theme"):
+                    window.apply_theme(self.host.themeMode)
+            except Exception:
+                continue
+
+    def set_banner_parallax_enabled(self, enabled: bool) -> None:
+        next_value = bool(enabled)
+        if self.services.workspace.state.ui.banner_parallax_enabled == next_value:
+            return
+        self.services.workspace.state.ui.banner_parallax_enabled = next_value
+        self.services.workspace.persist()
+        self.host._set_status("顶部横幅景深效果已启用。" if next_value else "顶部横幅景深效果已关闭。")
+
+    def set_banner_preset(self, preset_id: str) -> None:
+        next_value = str(preset_id or "").strip()
+        if next_value not in banner_preset_ids():
+            next_value = default_banner_preset_id()
+        if self.services.workspace.state.ui.banner_preset_id == next_value:
+            return
+        self.services.workspace.state.ui.banner_preset_id = next_value
+        self.services.workspace.persist()
+        preset_title = next((entry["title"] for entry in banner_preset_entries() if entry["preset_id"] == next_value), next_value)
+        self.host._set_status(f"已切换顶部横幅预设：{preset_title}")
+
+    def _banner_layer_attr(self, layer_name: str) -> str:
+        mapping = {
+            "background": "custom_banner_background_path",
+            "midground": "custom_banner_midground_path",
+            "foreground": "custom_banner_foreground_path",
+            "overlay": "custom_banner_overlay_path",
+        }
+        return mapping.get(layer_name, "")
+
+    def choose_custom_banner_layer(self, layer_name: str) -> None:
+        layer_key = str(layer_name or "").strip().lower()
+        attr_name = self._banner_layer_attr(layer_key)
+        if not attr_name:
+            self.host._set_status("未识别的横幅图层。")
+            return
+        raw_path, _ = QFileDialog.getOpenFileName(
+            None,
+            "选择横幅图层图片",
+            "",
+            "Images (*.png *.jpg *.jpeg *.webp)",
+        )
+        if not raw_path:
+            return
+        source = Path(raw_path)
+        if not source.exists():
+            self.host._set_status("所选横幅图层文件不存在。")
+            return
+        target_dir = self.services.paths.banner_custom
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for stale in target_dir.glob(f"{layer_key}.*"):
+            try:
+                stale.unlink()
+            except OSError:
+                continue
+        target = target_dir / f"{layer_key}{source.suffix.lower()}"
+        shutil.copy2(source, target)
+        setattr(self.services.workspace.state.ui, attr_name, str(target))
+        self.services.workspace.persist()
+        self.host._set_status(f"已更新横幅{layer_key}图层。")
+
+    def clear_custom_banner_layers(self) -> None:
+        ui_state = self.services.workspace.state.ui
+        for raw_path in (
+            ui_state.custom_banner_background_path,
+            ui_state.custom_banner_midground_path,
+            ui_state.custom_banner_foreground_path,
+            ui_state.custom_banner_overlay_path,
+        ):
+            if not raw_path:
+                continue
+            try:
+                path = Path(raw_path)
+                if path.exists():
+                    path.unlink()
+            except OSError:
+                continue
+        ui_state.custom_banner_background_path = ""
+        ui_state.custom_banner_midground_path = ""
+        ui_state.custom_banner_foreground_path = ""
+        ui_state.custom_banner_overlay_path = ""
+        self.services.workspace.persist()
+        self.host._set_status("已清除自定义横幅图层，恢复为当前默认预设。")
 
 
 class AssistantCoordinator(_Coordinator):

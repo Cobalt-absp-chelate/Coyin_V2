@@ -10,17 +10,29 @@ Rectangle {
     property var itemData: ({})
     property var controller: null
     property var theme: UiDefaults.safeTheme(UiDefaults.theme())
+    property bool interactive: true
     readonly property var motion: MotionCore.tokens(root.theme)
+    readonly property bool editableDocument: itemData.kind === "draft" || itemData.kind === "markdown" || itemData.kind === "docx"
+    readonly property color baseFillColor: MotionCore.cardFill(theme, false, root.enabled, interaction.hovered, interaction.pressed, false)
+    readonly property color fillColor: MotionCore.feedbackShade(
+        MotionCore.mixColor(baseFillColor, theme.accentSurface, interaction.accentStrength * 0.10 + interaction.settleStrength * 0.06),
+        theme,
+        interaction.hoverProgress,
+        interaction.pressProgress,
+        0,
+        interaction.focusProgress
+    )
+    readonly property color borderTone: MotionCore.cardBorder(theme, false, root.enabled, interaction.hovered, interaction.pressed, false)
+    readonly property color frameColor: MotionCore.mixColor(borderTone, theme.anchor, interaction.frameStrength * 0.24)
+    readonly property real surfaceScale: MotionCore.surfaceScale(interaction.hoverProgress, interaction.focusProgress, interaction.pressProgress, interaction.settleStrength, true)
 
     radius: motion.radiusMedium
-    color: root.enabled
-           ? MotionCore.mixColor(theme.panelRaised, MotionCore.mixColor(theme.panelHover, theme.accentSurface, 0.24 + interaction.settleStrength * 0.14), interaction.frameStrength)
-           : theme.panel
-    border.color: root.enabled
-                  ? MotionCore.mixColor(theme.border, theme.accentOutline, interaction.frameStrength * 0.76 + interaction.settleStrength * 0.18)
-                  : theme.border
+    color: root.enabled ? root.fillColor : theme.panel
+    border.color: root.enabled ? root.frameColor : theme.border
     border.width: 1
-    implicitHeight: Math.max(infoColumn.implicitHeight, actions.implicitHeight) + 28
+    implicitHeight: infoColumn.implicitHeight + 28
+    scale: root.surfaceScale
+    transformOrigin: Item.Center
 
     Behavior on color {
         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
@@ -30,15 +42,18 @@ Rectangle {
         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
     }
 
-    InteractionState {
+    Behavior on scale {
+        NumberAnimation { duration: MotionCore.duration("panel", root.theme); easing.type: Easing.OutCubic }
+    }
+
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: hoverHandler.hovered
-        pressedInput: false
-        focusedInput: false
-        busyInput: false
-        selectedInput: false
+        targetItem: root
+        hoverTrackingEnabled: false
+        cursorShape: Qt.PointingHandCursor
+        interactive: root.interactive
+        hoveredInputOverride: clickArea.containsMouse
+        pressedInputOverride: clickArea.pressed
     }
 
     SignalAccent {
@@ -50,11 +65,6 @@ Rectangle {
         neutralColor: theme.accentSoft
         edge: "frame"
         radius: motion.radiusMedium
-    }
-
-    HoverHandler {
-        id: hoverHandler
-        enabled: root.visible
     }
 
     Rectangle {
@@ -73,10 +83,10 @@ Rectangle {
         id: infoColumn
         anchors.left: parent.left
         anchors.leftMargin: 18
-        anchors.right: actions.left
-        anchors.rightMargin: 16
+        anchors.right: parent.right
+        anchors.rightMargin: 18
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 10
+        spacing: 8
 
         Text {
             text: itemData.display_title
@@ -140,19 +150,61 @@ Rectangle {
                 }
             }
         }
+
+        Text {
+            width: parent.width
+            text: "左键打开 · 右键菜单"
+            color: MotionCore.mixColor(theme.textSoft, theme.textMuted, interaction.textStrength * 0.24)
+            font.pixelSize: 10
+            horizontalAlignment: Text.AlignRight
+        }
     }
 
-    Column {
-        id: actions
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+    Menu {
+        id: contextMenu
 
-        InteractiveButton { theme: root.theme; text: "阅读"; onClicked: if (controller) controller.openDocument(itemData.document_id) }
-        InteractiveButton { theme: root.theme; text: "分析"; onClicked: if (controller) controller.analyzeDocument(itemData.document_id) }
-        InteractiveButton { theme: root.theme; text: "草稿"; onClicked: if (controller) controller.createDraftFromDocument(itemData.document_id) }
-        InteractiveButton { theme: root.theme; text: itemData.favorite ? "取消收藏" : "收藏"; selected: itemData.favorite; onClicked: if (controller) controller.toggleDocumentFavorite(itemData.document_id) }
-        InteractiveButton { theme: root.theme; text: "重命名"; onClicked: if (controller) controller.promptRenameDocument(itemData.document_id) }
+        MenuItem {
+            text: root.editableDocument ? "打开编辑" : "打开阅读"
+            onTriggered: if (controller) controller.openDocument(itemData.document_id)
+        }
+        MenuItem {
+            text: "分析"
+            onTriggered: if (controller) controller.analyzeDocument(itemData.document_id)
+        }
+        MenuSeparator {}
+        MenuItem {
+            text: itemData.favorite ? "取消收藏" : "收藏"
+            onTriggered: if (controller) controller.toggleDocumentFavorite(itemData.document_id)
+        }
+        MenuItem {
+            text: "重命名"
+            onTriggered: if (controller) controller.promptRenameDocument(itemData.document_id)
+        }
+        MenuItem {
+            text: "删除"
+            onTriggered: if (controller) controller.deleteDocument(itemData.document_id)
+        }
+    }
+
+    MouseArea {
+        id: clickArea
+        anchors.fill: parent
+        enabled: root.visible && root.interactive
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.LeftButton) {
+                if (controller)
+                    controller.openDocument(itemData.document_id)
+                return
+            }
+            if (mouse.button === Qt.RightButton) {
+                contextMenu.x = mouse.x + 4
+                contextMenu.y = mouse.y + 4
+                contextMenu.open()
+            }
+        }
     }
 }

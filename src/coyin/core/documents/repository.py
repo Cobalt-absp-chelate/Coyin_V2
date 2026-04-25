@@ -68,3 +68,15 @@ class DocumentRepository:
             last_opened=now_iso(),
             excerpt="",
         )
+
+    def create_descriptor_for_kind(self, path: Path, title: str, kind: DocumentKind) -> DocumentDescriptor:
+        descriptor = DocumentDescriptor(
+            document_id=short_id("doc"),
+            title=title,
+            path=str(path),
+            kind=kind.value,
+            added_at=now_iso(),
+            last_opened=now_iso(),
+            excerpt="",
+        )
+        return descriptor

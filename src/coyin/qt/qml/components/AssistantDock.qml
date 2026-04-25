@@ -25,31 +25,22 @@ Rectangle {
         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
     }
 
-    InteractionState {
+    InteractionTracker {
         id: interaction
-        enabledInput: root.enabled
-        visibleInput: root.visible
-        hoveredInput: panelHover.hovered
-        pressedInput: false
+        targetItem: root
+        cursorEnabled: false
         focusedInput: inputField.activeFocus
-        busyInput: false
-        selectedInput: false
     }
 
     SignalAccent {
         anchors.fill: parent
         active: interaction.active
-        hovered: panelHover.hovered
+        hovered: interaction.hovered
         pressed: false
         accentColor: theme.accent
         neutralColor: theme.accentSoft
         edge: "frame"
         radius: 6
-    }
-
-    HoverHandler {
-        id: panelHover
-        enabled: root.visible
     }
 
     Column {
@@ -119,7 +110,7 @@ Rectangle {
             height: 40
             radius: 4
             color: MotionCore.mixColor(theme.panelInset, theme.panelFocus, interaction.focusProgress * 0.26 + interaction.hoverProgress * 0.06)
-            border.color: MotionCore.mixColor(theme.border, theme.accentOutline, Math.max(interaction.focusProgress, inputHover.hovered ? 0.35 : 0.0))
+            border.color: MotionCore.mixColor(theme.border, theme.accentOutline, Math.max(interaction.focusProgress, inputInteraction.hovered ? 0.35 : 0.0))
             border.width: 1
 
             Behavior on color {
@@ -133,17 +124,21 @@ Rectangle {
             SignalAccent {
                 anchors.fill: parent
                 active: inputField.activeFocus && root.visible
-                hovered: inputHover.hovered
+                hovered: inputInteraction.hovered
                 pressed: false
                 accentColor: theme.anchor
                 neutralColor: theme.accentSoft
                 edge: "bottom"
                 radius: 4
             }
-            HoverHandler {
-                id: inputHover
-                enabled: root.visible
+
+            InteractionTracker {
+                id: inputInteraction
+                targetItem: parent
+                cursorShape: Qt.IBeamCursor
+                focusedInput: inputField.activeFocus
             }
+
             Row {
                 anchors.fill: parent
                 anchors.margins: 6

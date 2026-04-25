@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Coyin.Chrome 1.0
+import Coyin.Banner 1.0
 import "../components"
 import "../support/UiDefaults.js" as UiDefaults
 import "../support/MotionCore.js" as MotionCore
@@ -18,11 +19,19 @@ Item {
     readonly property var pluginModel: controller ? controller.pluginModel : null
     readonly property var summaryEntries: controller ? controller.settingsSummaryModel : null
     readonly property var environmentInfo: controller ? controller.environmentInfo : ({})
+    readonly property var bannerPresets: controller ? controller.bannerPresetEntries : []
     readonly property var provider: UiDefaults.safeProvider(providerEntries.length > 0 ? providerEntries[0] : UiDefaults.provider())
     readonly property int activePluginCount: controller ? controller.activePluginCount : 0
     readonly property int summaryColumns: root.width > 1500 ? 3 : 1
     readonly property int pluginCount: (root.pluginModel && root.pluginModel.count !== undefined) ? root.pluginModel.count : 0
     readonly property string themeMode: controller ? controller.themeMode : "light"
+    readonly property string bannerAssetRoot: controller ? controller.bannerAssetRoot : ""
+    readonly property bool bannerParallaxEnabled: controller ? controller.bannerParallaxEnabled : true
+    readonly property string bannerPresetId: controller ? controller.bannerPresetId : "preset_academic"
+    readonly property string customBannerBackgroundPath: controller ? controller.customBannerBackgroundPath : ""
+    readonly property string customBannerMidgroundPath: controller ? controller.customBannerMidgroundPath : ""
+    readonly property string customBannerForegroundPath: controller ? controller.customBannerForegroundPath : ""
+    readonly property string customBannerOverlayPath: controller ? controller.customBannerOverlayPath : ""
     readonly property var sectionMap: ({
         "appearance": appearanceSection,
         "provider": providerSection,
@@ -67,6 +76,15 @@ Item {
                 nextCategory = candidate.id
         }
         currentCategory = nextCategory
+    }
+
+    function fileLabel(pathValue) {
+        var text = String(pathValue || "")
+        if (!text.length)
+            return "使用当前默认预设"
+        var normalized = text.split("\\").join("/")
+        var parts = normalized.split("/")
+        return parts[parts.length - 1]
     }
 
     Timer {
@@ -204,26 +222,191 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "外观"
-                            subtitle: "主题与界面样式。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "appearance"
 
                             Row {
                                 spacing: 8
                                 InfoPill { text: root.themeMode === "light" ? "浅色模式" : "夜间模式"; fillColor: root.theme.accentSurface; borderColor: root.theme.accentOutline; textColor: root.theme.anchor }
+                                InfoPill { text: root.bannerParallaxEnabled ? "顶部横幅景深开启" : "顶部横幅景深关闭"; fillColor: root.bannerParallaxEnabled ? root.theme.accentSurface : root.theme.panelInset; borderColor: root.bannerParallaxEnabled ? root.theme.accentOutline : root.theme.border; textColor: root.bannerParallaxEnabled ? root.theme.anchor : root.theme.textMuted }
                                 InfoPill { text: root.activePluginCount + " 个插件已启用"; fillColor: root.theme.panelInset; borderColor: root.theme.border; textColor: root.theme.textMuted }
-                            }
-
-                            Text {
-                                width: parent.width
-                                text: "保持深蓝层级与矩形风格。"
-                                color: root.theme.textSoft
-                                wrapMode: Text.Wrap
                             }
 
                             InteractiveButton {
                                 theme: root.theme
                                 text: root.themeMode === "light" ? "切换到夜间模式" : "切换到浅色模式"
                                 onClicked: if (root.controller) root.controller.toggleTheme()
+                            }
+
+                            InteractiveExpander {
+                                width: parent.width
+                                theme: root.theme
+                                title: "顶部横幅景深"
+                                subtitle: "顶部标题栏与页签栏背后的多层横幅视差背景。"
+                                expanded: true
+
+                                Column {
+                                    width: parent.width
+                                    spacing: 12
+
+                                    InteractiveToggle {
+                                        width: parent.width
+                                        theme: root.theme
+                                        text: "启用顶部横幅景深效果"
+                                        description: "关闭后顶部横幅保持静态背景，不再响应鼠标左右视差。"
+                                        checked: root.bannerParallaxEnabled
+                                        onToggled: function(nextChecked) {
+                                            if (root.controller)
+                                                root.controller.setBannerParallaxEnabled(nextChecked)
+                                        }
+                                    }
+
+                                    Column {
+                                        width: parent.width
+                                        spacing: 8
+
+                                        Text {
+                                            text: "默认横幅组合"
+                                            color: root.theme.text
+                                            font.pixelSize: 13
+                                            font.weight: Font.DemiBold
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            spacing: 12
+
+                                            Repeater {
+                                                model: root.bannerPresets
+
+                                                delegate: Item {
+                                                    readonly property var entry: modelData || ({})
+                                                    readonly property bool selectedPreset: root.bannerPresetId === (entry.preset_id || "")
+                                                    width: Math.min(216, (parent.width - 12) / 2)
+                                                    height: previewColumn.implicitHeight
+
+                                                    Column {
+                                                        id: previewColumn
+                                                        width: parent.width
+                                                        spacing: 8
+
+                                                        Rectangle {
+                                                            width: parent.width
+                                                            height: 54
+                                                            radius: 8
+                                                            clip: true
+                                                            border.width: 1
+                                                            border.color: selectedPreset ? root.theme.accentOutline : root.theme.border
+                                                            color: root.theme.panelInset
+
+                                                            ParallaxBanner {
+                                                                anchors.fill: parent
+                                                                assetRoot: root.bannerAssetRoot
+                                                                presetId: entry.preset_id || "preset_academic"
+                                                                parallaxEnabled: true
+                                                                hoverActive: true
+                                                                pointerRatio: selectedPreset ? 0.22 : 0.10
+                                                            }
+
+                                                            Rectangle {
+                                                                anchors.fill: parent
+                                                                color: "transparent"
+                                                                border.width: selectedPreset ? 1 : 0
+                                                                border.color: root.theme.anchor
+                                                                radius: parent.radius
+                                                            }
+                                                        }
+
+                                                        InteractiveChip {
+                                                            theme: root.theme
+                                                            width: parent.width
+                                                            text: entry.title || ""
+                                                            checked: selectedPreset
+                                                            onClicked: if (root.controller && entry.preset_id) root.controller.setBannerPreset(entry.preset_id)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            width: parent.width
+                                            text: "每组预设都由背景层、中景层、前景层和装饰层组成。未上传自定义图层时，会直接使用当前默认组合。"
+                                            color: root.theme.textSoft
+                                            wrapMode: Text.Wrap
+                                            font.pixelSize: 11
+                                        }
+                                    }
+
+                                    InteractiveExpander {
+                                        width: parent.width
+                                        theme: root.theme
+                                        title: "自定义横幅图层"
+                                        subtitle: "可分别上传背景层、中景层、前景层和装饰层；未上传的层自动回退到当前预设。"
+
+                                        Column {
+                                            width: parent.width
+                                            spacing: 10
+
+                                            RowLayout {
+                                                width: parent.width
+                                                spacing: 10
+                                                Text { Layout.preferredWidth: 96; text: "背景层"; color: root.theme.text; font.weight: Font.DemiBold }
+                                                Text { Layout.fillWidth: true; text: root.fileLabel(root.customBannerBackgroundPath); color: root.theme.textMuted; elide: Text.ElideRight }
+                                                InteractiveButton { theme: root.theme; text: "上传"; onClicked: if (root.controller) root.controller.chooseCustomBannerLayer("background") }
+                                            }
+
+                                            RowLayout {
+                                                width: parent.width
+                                                spacing: 10
+                                                Text { Layout.preferredWidth: 96; text: "中景层"; color: root.theme.text; font.weight: Font.DemiBold }
+                                                Text { Layout.fillWidth: true; text: root.fileLabel(root.customBannerMidgroundPath); color: root.theme.textMuted; elide: Text.ElideRight }
+                                                InteractiveButton { theme: root.theme; text: "上传"; onClicked: if (root.controller) root.controller.chooseCustomBannerLayer("midground") }
+                                            }
+
+                                            RowLayout {
+                                                width: parent.width
+                                                spacing: 10
+                                                Text { Layout.preferredWidth: 96; text: "前景层"; color: root.theme.text; font.weight: Font.DemiBold }
+                                                Text { Layout.fillWidth: true; text: root.fileLabel(root.customBannerForegroundPath); color: root.theme.textMuted; elide: Text.ElideRight }
+                                                InteractiveButton { theme: root.theme; text: "上传"; onClicked: if (root.controller) root.controller.chooseCustomBannerLayer("foreground") }
+                                            }
+
+                                            RowLayout {
+                                                width: parent.width
+                                                spacing: 10
+                                                Text { Layout.preferredWidth: 96; text: "装饰层"; color: root.theme.text; font.weight: Font.DemiBold }
+                                                Text { Layout.fillWidth: true; text: root.fileLabel(root.customBannerOverlayPath); color: root.theme.textMuted; elide: Text.ElideRight }
+                                                InteractiveButton { theme: root.theme; text: "上传"; onClicked: if (root.controller) root.controller.chooseCustomBannerLayer("overlay") }
+                                            }
+
+                                            Row {
+                                                spacing: 10
+                                                InteractiveButton {
+                                                    theme: root.theme
+                                                    tone: "danger"
+                                                    text: "清除自定义图层"
+                                                    onClicked: if (root.controller) root.controller.clearCustomBannerLayers()
+                                                }
+
+                                                InfoPill {
+                                                    text: "支持 PNG / JPG / JPEG / WEBP"
+                                                    fillColor: root.theme.panelInset
+                                                    borderColor: root.theme.border
+                                                    textColor: root.theme.textMuted
+                                                }
+                                            }
+
+                                            Text {
+                                                width: parent.width
+                                                text: "当前保存位置：" + (root.environmentInfo.bannerCustomDir || "")
+                                                color: root.theme.textSoft
+                                                wrapMode: Text.Wrap
+                                                font.pixelSize: 11
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -233,7 +416,7 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "模型接口"
-                            subtitle: "接口与模型。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "provider"
 
                             GridLayout {
@@ -261,7 +444,7 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "插件"
-                            subtitle: "查看与启停插件。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "plugins"
 
                             ListView {
@@ -293,15 +476,11 @@ Item {
                                         ColorAnimation { duration: MotionCore.duration("panel", root.theme) }
                                     }
 
-                                    InteractionState {
+                                    InteractionTracker {
                                         id: pluginInteraction
-                                        enabledInput: root.enabled
-                                        visibleInput: root.visible
-                                        hoveredInput: pluginHover.hovered
-                                        pressedInput: false
-                                        focusedInput: false
-                                        busyInput: false
-                                        selectedInput: !!plugin_enabled
+                                        targetItem: parent
+                                        cursorEnabled: false
+                                        selected: !!plugin_enabled
                                     }
 
                                     SignalAccent {
@@ -313,11 +492,6 @@ Item {
                                         neutralColor: root.theme.accentSoft
                                         edge: hasIssue ? "left" : "frame"
                                         radius: 6
-                                    }
-
-                                    HoverHandler {
-                                        id: pluginHover
-                                        enabled: root.visible
                                     }
 
                                     Column {
@@ -411,7 +585,7 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "工作区 / 数据目录"
-                            subtitle: "工作区与目录。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "workspace"
 
                             Text { width: parent.width; text: "工作区文件：" + (root.environmentInfo.workspaceFile || ""); color: root.theme.text; wrapMode: Text.Wrap }
@@ -419,6 +593,8 @@ Item {
                             Text { width: parent.width; text: "下载目录：" + (root.environmentInfo.downloadsDir || ""); color: root.theme.textMuted; wrapMode: Text.Wrap }
                             Text { width: parent.width; text: "LaTeX 目录：" + (root.environmentInfo.latexDir || ""); color: root.theme.textMuted; wrapMode: Text.Wrap }
                             Text { width: parent.width; text: "插件目录：" + (root.environmentInfo.pluginsDir || ""); color: root.theme.textMuted; wrapMode: Text.Wrap }
+                            Text { width: parent.width; text: "默认横幅目录：" + (root.environmentInfo.bannerPresetDir || ""); color: root.theme.textMuted; wrapMode: Text.Wrap }
+                            Text { width: parent.width; text: "自定义横幅目录：" + (root.environmentInfo.bannerCustomDir || ""); color: root.theme.textMuted; wrapMode: Text.Wrap }
                         }
 
                         InteractiveExpander {
@@ -427,7 +603,7 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "导出 / 编译"
-                            subtitle: "模板、编译与导出。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "export"
 
                             Row {
@@ -450,7 +626,7 @@ Item {
                             width: parent.width
                             theme: root.theme
                             title: "高级 / 调试"
-                            subtitle: "底层状态与调试信息。"
+                            subtitle: ""
                             onToggled: if (expanded) root.currentCategory = "advanced"
 
                             Row {

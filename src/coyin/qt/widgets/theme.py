@@ -87,7 +87,7 @@ def base_stylesheet(mode: str) -> str:
     QWidget {{
         background: {palette.workspace};
         color: {palette.text};
-        font-family: 'Microsoft YaHei UI';
+        font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 'Segoe UI';
         font-size: 13px;
     }}
     QMainWindow, QDockWidget {{
@@ -105,6 +105,7 @@ def base_stylesheet(mode: str) -> str:
         background: {palette.panel_raised};
         selection-background-color: {palette.selection};
         selection-color: {palette.text};
+        placeholder-text-color: {palette.text_soft};
     }}
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QSpinBox:focus, QFontComboBox:focus {{
         border: 1px solid {palette.accent_outline};
@@ -167,9 +168,29 @@ def base_stylesheet(mode: str) -> str:
         border-radius: 6px;
     }}
     QComboBox, QSpinBox, QFontComboBox {{
-        padding: 4px 8px;
-        border-radius: 4px;
+        padding: 2px 8px;
+        border-radius: 3px;
+        min-height: 26px;
         background: {palette.panel_raised};
+        border: 1px solid {palette.border};
+    }}
+    QComboBox::drop-down, QSpinBox::up-button, QSpinBox::down-button {{
+        width: 16px;
+        border: none;
+        background: transparent;
+        subcontrol-origin: padding;
+    }}
+    QComboBox::down-arrow, QSpinBox::up-arrow, QSpinBox::down-arrow {{
+        width: 7px;
+        height: 7px;
+    }}
+    QComboBox:hover, QSpinBox:hover, QFontComboBox:hover {{
+        border: 1px solid {palette.border_strong};
+        background: {palette.panel_hover};
+    }}
+    QComboBox:on, QSpinBox:focus, QFontComboBox:focus {{
+        border: 1px solid {palette.accent_outline};
+        background: {palette.panel_focus};
     }}
     QHeaderView::section {{
         background: {palette.chrome_alt};

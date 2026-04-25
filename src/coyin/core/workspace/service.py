@@ -89,7 +89,7 @@ class WorkspaceService(QObject):
             recent_writer_ids=payload.get("recent_writer_ids", []),
             plugin_states=[_plugin_state_from_dict(item) for item in payload.get("plugin_states", [])],
             providers=[_provider_from_dict(item) for item in payload.get("providers", [])],
-            ui=UiState(**payload.get("ui", {})),
+            ui=UiState.from_dict(payload.get("ui", {})),
             workflow=_workflow_from_dict(payload.get("workflow", {})),
         )
 

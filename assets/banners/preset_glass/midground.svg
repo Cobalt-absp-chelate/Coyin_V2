@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240">
+            <defs>
+              <radialGradient id="orbA" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.76"/>
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="orbB" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#cfe0f0" stop-opacity="0.76"/>
+                <stop offset="100%" stop-color="#d8e7f6" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <circle cx="1180" cy="78" r="82" fill="url(#orbA)"/>
+            <circle cx="1322" cy="56" r="56" fill="url(#orbB)"/>
+            <circle cx="286" cy="72" r="66" fill="url(#orbA)"/>
+            <rect x="616" y="34" width="214" height="92" rx="24" fill="#f8fbfe" fill-opacity="0.54" stroke="#ffffff" stroke-opacity="0.72" stroke-width="1.5"/>
+            <rect x="930" y="54" width="154" height="72" rx="24" fill="#eef5fb" fill-opacity="0.58" stroke="#ffffff" stroke-opacity="0.58" stroke-width="1.2"/>
+            <rect x="1128" y="88" width="188" height="68" rx="24" fill="#f7fbfe" fill-opacity="0.34" stroke="#ffffff" stroke-opacity="0.44" stroke-width="1.2"/>
+            </svg>

@@ -2,17 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QFont, QPixmap, QTextBlockFormat, QTextCharFormat, QTextCursor, QTextListFormat
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
     QFontComboBox,
     QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QScrollArea,
     QSpinBox,
@@ -34,6 +39,7 @@ from coyin.core.exporters.base import DraftExporter
 from coyin.core.tasks import TaskCenter, TaskRequest
 from coyin.qt.widgets.auto_scroll import install_auto_hide_scrollbars
 from coyin.qt.widgets.iconography import themed_icon
+from coyin.qt.widgets.ribbon import RibbonField, RibbonGroup, configure_ribbon_tool, ribbon_stylesheet
 from coyin.qt.widgets.theme import base_stylesheet, palette_for
 
 
@@ -43,6 +49,9 @@ RIBBON_ICON_META = {
     "underline": ("下划线", "为选中文本添加或移除下划线。"),
     "highlight": ("高亮", "用高亮底色标记当前选区。"),
     "clear-format": ("清除格式", "清除当前文本的字符格式。"),
+    "paste": ("粘贴", "粘贴剪贴板内容。"),
+    "copy": ("复制", "复制当前选区。"),
+    "cut": ("剪切", "剪切当前选区。"),
     "heading": ("标题", "应用标题样式，提升层级。"),
     "body": ("正文", "恢复为常规正文样式。"),
     "align-left": ("左对齐", "段落左对齐。"),
@@ -80,27 +89,23 @@ RIBBON_ICON_META = {
     "font-family": ("字体", "切换当前文本的字体。"),
     "font-size": ("字号", "调整当前文本的字号。"),
     "line-spacing": ("行距", "调整当前段落行距。"),
+    "page-layout": ("页边距", "选择常用页边距预设或打开自定义页边距。"),
+    "page-orientation": ("纸张方向", "切换页面为纵向或横向。"),
+    "indent-left": ("左缩进", "调整段落左缩进。"),
+    "indent-right": ("右缩进", "调整段落右缩进。"),
+    "toggle-inspector": ("侧栏", "显示或隐藏右侧信息栏。"),
 }
 
 
-class RibbonGroup(QFrame):
-    def __init__(self, title: str):
-        super().__init__()
-        self.setObjectName("RibbonSurface")
-        self.setFrameShape(QFrame.Shape.NoFrame)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 6)
-        layout.setSpacing(6)
-        self.row = QHBoxLayout()
-        self.row.setSpacing(6)
-        layout.addLayout(self.row)
-        label = QLabel(title)
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        label.setStyleSheet("font-size: 11px; color: #708195;")
-        layout.addWidget(label)
-
-
 class WriterWindow(QMainWindow):
+    PAGE_MARGIN_SCALE = 2.2
+    PAGE_MARGIN_PRESETS = {
+        "标准": {"left": 25, "top": 21, "right": 25, "bottom": 21},
+        "窄": {"left": 13, "top": 13, "right": 13, "bottom": 13},
+        "宽": {"left": 36, "top": 30, "right": 36, "bottom": 30},
+        "对称": {"left": 25, "top": 21, "right": 25, "bottom": 21},
+    }
+
     def __init__(
         self,
         descriptor: DocumentDescriptor,
@@ -113,6 +118,8 @@ class WriterWindow(QMainWindow):
         task_runner=None,
         launch_linked_latex=None,
         theme_mode: str = "light",
+        document_mode: str = "draft",
+        initial_html: str = "",
     ):
         super().__init__()
         self.descriptor = descriptor
@@ -125,11 +132,19 @@ class WriterWindow(QMainWindow):
         self.task_runner = task_runner
         self.launch_linked_latex = launch_linked_latex
         self.theme_mode = theme_mode
+        self.document_mode = document_mode
+        self.initial_html = initial_html
         self._consumer_id = f"writer::{descriptor.document_id}"
         self._dirty = False
         self._suspend_autosave = False
         self._last_export_path = ""
         self._export_task_id = f"export::{self.descriptor.document_id}"
+        self._page_margins = {
+            "left": int(self.descriptor.metadata.get("page_margin_left", 56)),
+            "top": int(self.descriptor.metadata.get("page_margin_top", 46)),
+            "right": int(self.descriptor.metadata.get("page_margin_right", 56)),
+            "bottom": int(self.descriptor.metadata.get("page_margin_bottom", 56)),
+        }
 
         self.setWindowTitle(descriptor.title)
         self.resize(1340, 930)
@@ -139,6 +154,8 @@ class WriterWindow(QMainWindow):
         self.ribbon_tabs.setDocumentMode(True)
         self.ribbon_tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.ribbon_tabs.setMovable(False)
+        self.ribbon_tabs.setMinimumHeight(140)
+        self.ribbon_tabs.setMaximumHeight(140)
 
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(True)
@@ -157,7 +174,12 @@ class WriterWindow(QMainWindow):
         self.page_sheet.setMinimumWidth(620)
         self.page_sheet.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         page_layout = QVBoxLayout(self.page_sheet)
-        page_layout.setContentsMargins(56, 46, 56, 56)
+        page_layout.setContentsMargins(
+            self._page_margins["left"],
+            self._page_margins["top"],
+            self._page_margins["right"],
+            self._page_margins["bottom"],
+        )
         page_layout.addWidget(self.editor)
 
         page_host = QWidget()
@@ -210,6 +232,8 @@ class WriterWindow(QMainWindow):
     def _build_context_bar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("RibbonSurface")
+        bar.setMinimumHeight(52)
+        bar.setMaximumHeight(52)
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(10)
@@ -219,6 +243,10 @@ class WriterWindow(QMainWindow):
         self.context_source = QLabel("来源待识别")
         self.context_analysis = QLabel("未关联分析")
         self.context_save = QLabel("已加载")
+        for label in (self.context_source, self.context_analysis, self.context_save):
+            label.setWordWrap(False)
+            label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            label.setMaximumHeight(18)
 
         self.context_source.setStyleSheet("font-size: 11px; color: #708195;")
         self.context_analysis.setStyleSheet("font-size: 11px; color: #708195;")
@@ -308,7 +336,7 @@ class WriterWindow(QMainWindow):
     def apply_theme(self, mode: str) -> None:
         self.theme_mode = mode
         palette = palette_for(mode)
-        self.setStyleSheet(base_stylesheet(mode))
+        self.setStyleSheet(base_stylesheet(mode) + ribbon_stylesheet(mode))
         self.editor.setStyleSheet(
             f"background: transparent; border: none; color: {palette.text};"
             f"selection-background-color: {palette.selection};"
@@ -363,10 +391,118 @@ class WriterWindow(QMainWindow):
         button.setAccessibleName(title)
         button.setToolTip(self._tooltip_html(title, description))
         button.setStatusTip(description)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        button.setAutoRaise(False)
-        button.setFixedSize(34, 30)
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        configure_ribbon_tool(button, "command")
+
+    def _make_ribbon_button(
+        self,
+        action_id: str,
+        text: str,
+        description: str,
+        handler,
+        *,
+        variant: str = "command",
+    ) -> QToolButton:
+        button = QToolButton()
+        button.setText(text)
+        title, _ = self._icon_meta(action_id, text or action_id, description)
+        self._style_ribbon_tool(button, action_id, title, description)
+        configure_ribbon_tool(button, variant)
+        button.clicked.connect(handler)
+        return button
+
+    def _px_to_mm(self, value: int) -> int:
+        return max(1, int(round(int(value) / self.PAGE_MARGIN_SCALE)))
+
+    def _mm_to_px(self, value: int) -> int:
+        return max(1, int(round(int(value) * self.PAGE_MARGIN_SCALE)))
+
+    def _set_spin_value(self, spin: QSpinBox, value: int) -> None:
+        spin.blockSignals(True)
+        spin.setValue(int(value))
+        spin.blockSignals(False)
+
+    def _sync_page_margin_controls(self) -> None:
+        if not hasattr(self, "margin_left_spin"):
+            return
+        self._set_spin_value(self.margin_left_spin, self._px_to_mm(self._page_margins["left"]))
+        self._set_spin_value(self.margin_top_spin, self._px_to_mm(self._page_margins["top"]))
+        self._set_spin_value(self.margin_right_spin, self._px_to_mm(self._page_margins["right"]))
+        self._set_spin_value(self.margin_bottom_spin, self._px_to_mm(self._page_margins["bottom"]))
+
+    def _apply_margin_preset(self, preset_name: str) -> None:
+        preset = self.PAGE_MARGIN_PRESETS.get(preset_name)
+        if not preset:
+            return
+        self._page_margins.update({side: self._mm_to_px(value) for side, value in preset.items()})
+        self._apply_page_sheet_margins()
+        self._sync_page_margin_controls()
+        self._update_margin_summary()
+        self._queue_autosave()
+
+    def _apply_page_sheet_margins(self) -> None:
+        layout = self.page_sheet.layout()
+        if isinstance(layout, QVBoxLayout):
+            layout.setContentsMargins(
+                self._page_margins["left"],
+                self._page_margins["top"],
+                self._page_margins["right"],
+                self._page_margins["bottom"],
+            )
+
+    def _build_margin_menu(self) -> QMenu:
+        menu = QMenu(self)
+        for name in self.PAGE_MARGIN_PRESETS:
+            action = menu.addAction(name)
+            action.triggered.connect(lambda checked=False, preset=name: self._apply_margin_preset(preset))
+        menu.addSeparator()
+        custom_action = menu.addAction("自定义页边距…")
+        custom_action.triggered.connect(self._open_margin_dialog)
+        return menu
+
+    def _open_margin_dialog(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("自定义页边距")
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        left_spin = QSpinBox()
+        left_spin.setRange(8, 60)
+        left_spin.setSuffix(" mm")
+        left_spin.setValue(self._px_to_mm(self._page_margins["left"]))
+        top_spin = QSpinBox()
+        top_spin.setRange(8, 60)
+        top_spin.setSuffix(" mm")
+        top_spin.setValue(self._px_to_mm(self._page_margins["top"]))
+        right_spin = QSpinBox()
+        right_spin.setRange(8, 60)
+        right_spin.setSuffix(" mm")
+        right_spin.setValue(self._px_to_mm(self._page_margins["right"]))
+        bottom_spin = QSpinBox()
+        bottom_spin.setRange(8, 60)
+        bottom_spin.setSuffix(" mm")
+        bottom_spin.setValue(self._px_to_mm(self._page_margins["bottom"]))
+
+        form.addRow("左", left_spin)
+        form.addRow("上", top_spin)
+        form.addRow("右", right_spin)
+        form.addRow("下", bottom_spin)
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        self._page_margins["left"] = self._mm_to_px(left_spin.value())
+        self._page_margins["top"] = self._mm_to_px(top_spin.value())
+        self._page_margins["right"] = self._mm_to_px(right_spin.value())
+        self._page_margins["bottom"] = self._mm_to_px(bottom_spin.value())
+        self._apply_page_sheet_margins()
+        self._update_margin_summary()
+        self._queue_autosave()
 
     def _style_panel_button(self, button: QPushButton, action_id: str, title: str = "", description: str = "") -> None:
         resolved_title, resolved_description = self._icon_meta(action_id, title or button.text(), description)
@@ -380,54 +516,144 @@ class WriterWindow(QMainWindow):
         title, description = self._icon_meta(action_id)
         widget.setToolTip(self._tooltip_html(title, description))
         widget.setStatusTip(description)
+        widget.setProperty("ribbonRole", "field")
 
-    def _add_button(self, group: RibbonGroup, action_id: str, text: str, description: str, handler) -> None:
-        button = QToolButton()
-        button.setText(text)
-        self._style_ribbon_tool(button, action_id, text, description)
-        button.clicked.connect(handler)
-        group.row.addWidget(button)
+    def _make_numeric_combo(
+        self,
+        action_id: str,
+        values: list[str],
+        width: int,
+        *,
+        editable: bool = False,
+        current: str | None = None,
+    ) -> QComboBox:
+        combo = QComboBox()
+        combo.setEditable(editable)
+        combo.addItems(values)
+        combo.setFixedWidth(width)
+        self._style_ribbon_field(combo, action_id)
+        if editable and combo.lineEdit():
+            combo.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if current is not None:
+            combo.setCurrentText(current)
+        return combo
+
+    def _make_stepper(
+        self,
+        title: str,
+        value: float,
+        width: int,
+        minimum: float,
+        maximum: float,
+        step: float,
+        decimals: int,
+        suffix: str,
+        callback,
+    ) -> RibbonField:
+        spin = QDoubleSpinBox()
+        spin.setDecimals(decimals)
+        spin.setRange(minimum, maximum)
+        spin.setSingleStep(step)
+        spin.setSuffix(suffix)
+        spin.setValue(value)
+        spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        spin.setFixedWidth(width)
+        spin.setProperty("ribbonRole", "stepper")
+        spin.valueChanged.connect(callback)
+        return self._wrap_field(title, spin, width)
+
+    def _parse_numeric_text(self, text: str, default: float) -> float:
+        stripped = "".join(ch for ch in text if ch.isdigit() or ch in {".", "-"})
+        if not stripped:
+            return default
+        try:
+            return float(stripped)
+        except ValueError:
+            return default
+
+    def _wrap_field(self, title: str, field: QWidget, min_width: int = 0) -> RibbonField:
+        return RibbonField(title, field, min_width=min_width)
+
+    def _stack_fields(self, *widgets: QWidget) -> QWidget:
+        host = QWidget()
+        layout = QVBoxLayout(host)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        for widget in widgets:
+            layout.addWidget(widget)
+        return host
+
+    def _add_button(
+        self,
+        group: RibbonGroup,
+        action_id: str,
+        text: str,
+        description: str,
+        handler,
+        *,
+        variant: str = "command",
+    ) -> None:
+        group.row.addWidget(self._make_ribbon_button(action_id, text, description, handler, variant=variant))
 
     def _build_ribbon(self) -> None:
         self.font_combo = QFontComboBox()
+        self.font_combo.setEditable(False)
         self.font_combo.currentFontChanged.connect(self._set_font_family)
         self._style_ribbon_field(self.font_combo, "font-family")
-        self.size_spin = QSpinBox()
-        self.size_spin.setRange(8, 48)
-        self.size_spin.setValue(12)
-        self.size_spin.valueChanged.connect(self._set_font_size)
-        self._style_ribbon_field(self.size_spin, "font-size")
-        self.line_spacing = QComboBox()
-        self.line_spacing.addItems(["1.0", "1.15", "1.5", "2.0"])
-        self.line_spacing.setCurrentText("1.15")
-        self.line_spacing.currentTextChanged.connect(self._apply_line_spacing)
-        self._style_ribbon_field(self.line_spacing, "line-spacing")
+        self.font_combo.setFixedWidth(188)
+        self.size_combo = self._make_numeric_combo(
+            "font-size",
+            ["8", "9", "10", "11", "12", "14", "16", "18", "20", "24", "28", "32"],
+            80,
+            current="12",
+        )
+        self.size_combo.currentTextChanged.connect(self._handle_font_size_text)
+        self.line_spacing = self._make_numeric_combo(
+            "line-spacing",
+            ["1.0", "1.15", "1.5", "2.0", "2.5", "3.0", "行距选项…"],
+            96,
+            current="1.15",
+        )
+        self.line_spacing.activated.connect(lambda index, combo=self.line_spacing: self._handle_line_spacing_choice(combo, index))
+        self.line_spacing.installEventFilter(self)
 
         start_page = QWidget()
         start_layout = QHBoxLayout(start_page)
         start_layout.setContentsMargins(8, 8, 8, 8)
         start_layout.setSpacing(8)
 
-        font_group = RibbonGroup("字体")
-        font_group.row.addWidget(self.font_combo)
-        font_group.row.addWidget(self.size_spin)
-        start_layout.addWidget(font_group)
+        clipboard_group = RibbonGroup("剪贴板", min_width=88)
+        clipboard_group.row.setSpacing(0)
+        clipboard_column = QWidget()
+        clipboard_layout = QVBoxLayout(clipboard_column)
+        clipboard_layout.setContentsMargins(0, 0, 0, 0)
+        clipboard_layout.setSpacing(4)
+        for action_id, label, handler in (
+            ("paste", "粘贴", self.editor.paste),
+            ("copy", "复制", self.editor.copy),
+            ("cut", "剪切", self.editor.cut),
+        ):
+            _, description = self._icon_meta(action_id, label)
+            clipboard_layout.addWidget(self._make_ribbon_button(action_id, "", description, handler, variant="icon"))
+        clipboard_layout.addStretch(1)
+        clipboard_group.row.addWidget(clipboard_column)
+        start_layout.addWidget(clipboard_group)
 
-        style_group = RibbonGroup("样式")
+        font_group = RibbonGroup("字体", min_width=432)
+        font_group.row.addWidget(self._wrap_field("字体", self.font_combo, 188))
+        font_group.row.addWidget(self._wrap_field("字号", self.size_combo, 80))
         for action_id, label, handler in (
             ("bold", "加粗", lambda: self._toggle_char_attr("bold")),
             ("italic", "斜体", lambda: self._toggle_char_attr("italic")),
             ("underline", "下划线", lambda: self._toggle_char_attr("underline")),
             ("highlight", "高亮", self._toggle_highlight),
             ("clear-format", "清除格式", self._clear_format),
-            ("heading", "标题", lambda: self._push_document_command("应用标题样式", self._apply_heading_core)),
-            ("body", "正文", lambda: self._push_document_command("应用正文样式", self._apply_body_core)),
         ):
             _, description = self._icon_meta(action_id, label)
-            self._add_button(style_group, action_id, label, description, handler)
-        start_layout.addWidget(style_group)
+            self._add_button(font_group, action_id, "", description, handler, variant="icon")
+        start_layout.addWidget(font_group)
 
-        paragraph_group = RibbonGroup("段落")
+        paragraph_group = RibbonGroup("段落", min_width=460)
         for action_id, label, handler in (
             ("align-left", "左对齐", lambda: self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)),
             ("align-center", "居中", lambda: self.editor.setAlignment(Qt.AlignmentFlag.AlignHCenter)),
@@ -437,21 +663,21 @@ class WriterWindow(QMainWindow):
             ("number-list", "编号", lambda: self._apply_list(True)),
         ):
             _, description = self._icon_meta(action_id, label)
-            self._add_button(paragraph_group, action_id, label, description, handler)
-        paragraph_group.row.addWidget(QLabel("行距"))
-        paragraph_group.row.addWidget(self.line_spacing)
+            self._add_button(paragraph_group, action_id, "", description, handler, variant="icon")
         start_layout.addWidget(paragraph_group)
 
-        workflow_group = RibbonGroup("工作流")
+        style_box = RibbonGroup("样式", min_width=180)
         for action_id, label, handler in (
-            ("analysis-summary", "分析摘要", self._insert_analysis_summary),
-            ("analysis-contrib", "贡献清单", self._insert_analysis_contributions),
-            ("method-scaffold", "方法框架", self._insert_method_scaffold),
-            ("to-latex", "转 LaTeX", self._launch_latex),
+            ("body", "正文", lambda: self._push_document_command("应用正文样式", self._apply_body_core)),
+            ("heading", "标题 1", lambda: self._push_document_command("应用标题样式", self._apply_heading_core)),
         ):
             _, description = self._icon_meta(action_id, label)
-            self._add_button(workflow_group, action_id, label, description, handler)
-        start_layout.addWidget(workflow_group)
+            self._add_button(style_box, action_id, label, description, handler)
+        start_layout.addWidget(style_box)
+        window_group = RibbonGroup("窗口", min_width=90)
+        _, inspector_description = self._icon_meta("toggle-inspector", "侧栏", "显示或隐藏右侧信息栏。")
+        self._add_button(window_group, "toggle-inspector", "侧栏", inspector_description, self._toggle_inspector)
+        start_layout.addWidget(window_group)
         start_layout.addStretch(1)
         self.ribbon_tabs.addTab(start_page, "开始")
 
@@ -459,19 +685,27 @@ class WriterWindow(QMainWindow):
         insert_layout = QHBoxLayout(insert_page)
         insert_layout.setContentsMargins(8, 8, 8, 8)
         insert_layout.setSpacing(8)
-        media_group = RibbonGroup("插入")
+        page_group = RibbonGroup("页面", min_width=150)
+        for action_id, label, handler in (
+            ("page-break", "分页", lambda: self._push_document_command("插入分页", self._insert_page_break_core)),
+            ("insert-table", "表格", self._insert_table),
+        ):
+            _, description = self._icon_meta(action_id, label)
+            self._add_button(page_group, action_id, label, description, handler)
+        insert_layout.addWidget(page_group)
+
+        media_group = RibbonGroup("插图与对象", min_width=338)
         for action_id, label, handler in (
             ("insert-image", "图片", self._insert_image),
             ("insert-textbox", "文本框", lambda: self._push_document_command("插入文本框", self._insert_text_box_core)),
             ("insert-shape", "矩形框", lambda: self._push_document_command("插入矩形框", self._insert_shape_box_core)),
             ("insert-rule", "分隔线", lambda: self._push_document_command("插入分隔线", self._insert_rule_core)),
-            ("insert-table", "表格", self._insert_table),
         ):
             _, description = self._icon_meta(action_id, label)
             self._add_button(media_group, action_id, label, description, handler)
         insert_layout.addWidget(media_group)
 
-        reference_group = RibbonGroup("引用与批注")
+        reference_group = RibbonGroup("引用与批注", min_width=324)
         for action_id, label, handler in (
             ("insert-reference", "引用条目", lambda: self._push_document_command("插入引用条目", self._insert_reference_core)),
             ("insert-figure-caption", "图注", lambda: self._push_document_command("插入图注", lambda: self._insert_caption_core("图"))),
@@ -481,32 +715,125 @@ class WriterWindow(QMainWindow):
             _, description = self._icon_meta(action_id, label)
             self._add_button(reference_group, action_id, label, description, handler)
         insert_layout.addWidget(reference_group)
+        quick_group = RibbonGroup("快速操作", min_width=210)
+        for action_id, label, handler in (
+            ("find", "查找", self._find_text),
+            ("toggle-inspector", "侧栏", self._toggle_inspector),
+        ):
+            _, description = self._icon_meta(action_id, label)
+            self._add_button(quick_group, action_id, label, description, handler)
+        insert_layout.addWidget(quick_group)
         insert_layout.addStretch(1)
         self.ribbon_tabs.addTab(insert_page, "插入")
 
         layout_page = QWidget()
         layout_row = QHBoxLayout(layout_page)
         layout_row.setContentsMargins(8, 8, 8, 8)
-        layout_row.setSpacing(8)
-        spacing_group = RibbonGroup("布局")
-        for action_id, label, handler in (
-            ("space-before", "段前 +6", lambda: self._adjust_spacing(6, 0)),
-            ("space-after", "段后 +6", lambda: self._adjust_spacing(0, 6)),
-            ("indent-increase", "增加缩进", lambda: self._adjust_indent(18)),
-            ("indent-decrease", "减少缩进", lambda: self._adjust_indent(-18)),
-            ("page-break", "插入分页", lambda: self._push_document_command("插入分页", self._insert_page_break_core)),
-        ):
-            _, description = self._icon_meta(action_id, label)
-            self._add_button(spacing_group, action_id, label, description, handler)
-        layout_row.addWidget(spacing_group)
+        layout_row.setSpacing(12)
+
+        if self.document_mode == "docx":
+            page_group = RibbonGroup("页面", min_width=260)
+            page_group.row.setSpacing(10)
+            self.margin_preset_button = QToolButton()
+            self.margin_preset_button.setText("页边距")
+            self.margin_preset_button.setIcon(themed_icon("more", self.theme_mode, 18))
+            self._style_ribbon_tool(self.margin_preset_button, "page-layout", "页边距", "选择常用页边距预设。")
+            configure_ribbon_tool(self.margin_preset_button, "menu")
+            self.margin_preset_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+            self.margin_preset_button.setMenu(self._build_margin_menu())
+            self.margin_summary_label = QLabel()
+            self.margin_summary_label.setWordWrap(False)
+            self.margin_summary_label.setStyleSheet("font-size: 12px; color: #4c5d70;")
+            self.margin_summary_label.setMinimumWidth(122)
+            page_group.row.addWidget(self.margin_preset_button)
+            page_group.row.addWidget(self.margin_summary_label, 1)
+            layout_row.addWidget(page_group)
+
+            paragraph_settings_group = RibbonGroup("段落", min_width=344)
+            paragraph_settings_group.row.setSpacing(8)
+            self.docx_line_spacing = self._make_numeric_combo(
+                "line-spacing",
+                ["1.0", "1.15", "1.5", "2.0", "2.5", "3.0", "行距选项…"],
+                100,
+                current=self.line_spacing.currentText(),
+            )
+            self.docx_line_spacing.activated.connect(
+                lambda index, combo=self.docx_line_spacing: self._handle_line_spacing_choice(combo, index)
+            )
+            self.docx_line_spacing.installEventFilter(self)
+            self.paragraph_before_spin = self._make_stepper(
+                "段前",
+                6.0,
+                118,
+                0.0,
+                72.0,
+                0.5,
+                1,
+                " 磅",
+                lambda value: self._set_block_spacing("before", value),
+            )
+            self.paragraph_after_spin = self._make_stepper(
+                "段后",
+                6.0,
+                118,
+                0.0,
+                72.0,
+                0.5,
+                1,
+                " 磅",
+                lambda value: self._set_block_spacing("after", value),
+            )
+            paragraph_settings_group.row.addWidget(
+                self._wrap_field("行距", self.docx_line_spacing, 100)
+            )
+            paragraph_settings_group.row.addWidget(self._stack_fields(self.paragraph_before_spin, self.paragraph_after_spin))
+            layout_row.addWidget(paragraph_settings_group)
+
+        indent_group = RibbonGroup("缩进", min_width=250)
+        self.left_indent_spin = self._make_stepper(
+            "左缩进",
+            0.0,
+            118,
+            0.0,
+            20.0,
+            1.0,
+            0,
+            " 字符",
+            lambda value: self._set_indent_margin("left", value * 18.0),
+        )
+        self.right_indent_spin = self._make_stepper(
+            "右缩进",
+            0.0,
+            118,
+            0.0,
+            20.0,
+            1.0,
+            0,
+            " 字符",
+            lambda value: self._set_indent_margin("right", value * 18.0),
+        )
+        indent_group.row.addWidget(self._stack_fields(self.left_indent_spin, self.right_indent_spin))
+        layout_row.addWidget(indent_group)
+
+        page_break_group = RibbonGroup("分页", min_width=96)
+        _, page_break_description = self._icon_meta("page-break", "分页")
+        self._add_button(
+            page_break_group,
+            "page-break",
+            "分页",
+            page_break_description,
+            lambda: self._push_document_command("插入分页", self._insert_page_break_core),
+        )
+        layout_row.addWidget(page_break_group)
         layout_row.addStretch(1)
+        self._update_margin_summary()
         self.ribbon_tabs.addTab(layout_page, "布局")
 
         reference_page = QWidget()
         reference_row = QHBoxLayout(reference_page)
         reference_row.setContentsMargins(8, 8, 8, 8)
         reference_row.setSpacing(8)
-        citation_group = RibbonGroup("引用")
+        citation_group = RibbonGroup("引用工具", min_width=300)
         for action_id, label, handler in (
             ("reference-placeholder", "引用占位", lambda: self._push_document_command("插入引用占位", self._insert_reference_core)),
             ("reference-list", "参考文献列表", lambda: self._push_document_command("插入参考文献列表", self._insert_reference_list_core)),
@@ -525,6 +852,14 @@ class WriterWindow(QMainWindow):
                     lambda checked=False, meta=action_meta: self._handle_plugin_action(meta["id"]),
                 )
         reference_row.addWidget(citation_group)
+        reference_edit_group = RibbonGroup("校对与定位", min_width=238)
+        for action_id, label, handler in (
+            ("find", "查找", self._find_text),
+            ("insert-comment", "批注", self._insert_comment),
+        ):
+            _, description = self._icon_meta(action_id, label)
+            self._add_button(reference_edit_group, action_id, label, description, handler)
+        reference_row.addWidget(reference_edit_group)
         reference_row.addStretch(1)
         self.ribbon_tabs.addTab(reference_page, "引用")
 
@@ -532,7 +867,7 @@ class WriterWindow(QMainWindow):
         view_row = QHBoxLayout(view_page)
         view_row.setContentsMargins(8, 8, 8, 8)
         view_row.setSpacing(8)
-        export_group = RibbonGroup("导出")
+        export_group = RibbonGroup("导出", min_width=312)
         for action_id, label, handler in (
             ("export-pdf", "导出 PDF", self._export_pdf),
             ("export-docx", "导出 DOCX", self._export_docx),
@@ -541,7 +876,7 @@ class WriterWindow(QMainWindow):
             _, description = self._icon_meta(action_id, label)
             self._add_button(export_group, action_id, label, description, handler)
         view_row.addWidget(export_group)
-        inspect_group = RibbonGroup("视图与查找")
+        inspect_group = RibbonGroup("视图与查找", min_width=270)
         for action_id, label, handler in (
             ("find", "查找", self._find_text),
             ("zoom-in", "放大", lambda: self._zoom_editor(1.08)),
@@ -550,13 +885,19 @@ class WriterWindow(QMainWindow):
             _, description = self._icon_meta(action_id, label)
             self._add_button(inspect_group, action_id, label, description, handler)
         view_row.addWidget(inspect_group)
+        export_window_group = RibbonGroup("窗口", min_width=120)
+        _, inspector_description = self._icon_meta("toggle-inspector", "侧栏", "显示或隐藏右侧信息栏。")
+        self._add_button(export_window_group, "toggle-inspector", "侧栏", inspector_description, self._toggle_inspector)
+        view_row.addWidget(export_window_group)
         view_row.addStretch(1)
         self.ribbon_tabs.addTab(view_page, "导出")
 
     def _load_content(self) -> None:
         path = Path(self.descriptor.path)
         self._suspend_autosave = True
-        if path.exists():
+        if self.document_mode == "docx" and self.initial_html:
+            self.editor.setHtml(self.initial_html)
+        elif path.exists():
             self.editor.setHtml(path.read_text(encoding="utf-8", errors="ignore"))
         self._suspend_autosave = False
         self._set_save_feedback("已载入当前草稿。", dirty=False)
@@ -626,7 +967,19 @@ class WriterWindow(QMainWindow):
 
     def _autosave(self) -> None:
         path = Path(self.descriptor.path)
-        path.write_text(self.editor.toHtml(), encoding="utf-8")
+        if self.document_mode == "docx":
+            self.exporter.export_docx(self.descriptor.title, self.editor.toHtml(), path)
+            self._docx_cache_path().write_text(self.editor.toHtml(), encoding="utf-8")
+            self.descriptor.metadata.update(
+                {
+                    "page_margin_left": self._page_margins["left"],
+                    "page_margin_top": self._page_margins["top"],
+                    "page_margin_right": self._page_margins["right"],
+                    "page_margin_bottom": self._page_margins["bottom"],
+                }
+            )
+        else:
+            path.write_text(self.editor.toHtml(), encoding="utf-8")
         self.descriptor.last_opened = now_iso()
         self.descriptor.excerpt = self.editor.toPlainText().strip()[:200]
         self.workspace.update_document(self.descriptor)
@@ -644,7 +997,7 @@ class WriterWindow(QMainWindow):
         word_count = len([part for part in text.split() if part.strip()])
         char_count = len(text)
         cursor = self.editor.textCursor()
-        self.status_summary.setText(f"字数 {char_count}  ·  词数 {word_count}")
+        self.status_summary.setText(f"总字数 {char_count}  ·  {word_count} 词")
         self.status_cursor.setText(f"段落 {cursor.blockNumber() + 1}  ·  列 {cursor.columnNumber() + 1}")
 
     def apply_command_html(self, html: str) -> None:
@@ -673,6 +1026,40 @@ class WriterWindow(QMainWindow):
 
     def _set_font_size(self, value: int) -> None:
         self.editor.setFontPointSize(float(value))
+
+    def _handle_font_size_text(self, value: str) -> None:
+        self._set_font_size(int(round(self._parse_numeric_text(value, 12.0))))
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.MouseButtonDblClick and watched in {
+            getattr(self, "line_spacing", None),
+            getattr(self, "docx_line_spacing", None),
+        }:
+            self._open_custom_line_spacing_dialog()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _handle_line_spacing_choice(self, combo: QComboBox, index: int) -> None:
+        text = combo.itemText(index)
+        if text == "行距选项…":
+            self._open_custom_line_spacing_dialog()
+            return
+        self._apply_line_spacing(text)
+
+    def _open_custom_line_spacing_dialog(self) -> None:
+        current = self._parse_numeric_text(self.line_spacing.currentText(), 1.15)
+        value, accepted = QInputDialog.getDouble(
+            self,
+            "行距选项",
+            "请输入行距倍数：",
+            current,
+            0.5,
+            6.0,
+            2,
+        )
+        if not accepted:
+            return
+        self._apply_line_spacing(f"{value:g}")
 
     def _toggle_char_attr(self, attr: str) -> None:
         if attr == "bold":
@@ -727,10 +1114,66 @@ class WriterWindow(QMainWindow):
         cursor.mergeCharFormat(char_format)
 
     def _apply_line_spacing(self, value: str) -> None:
+        numeric = self._parse_numeric_text(value, 1.15)
         cursor = self.editor.textCursor()
         block = cursor.blockFormat()
-        block.setLineHeight(int(float(value) * 100), QTextBlockFormat.LineHeightTypes.ProportionalHeight)
+        block.setLineHeight(int(numeric * 100), QTextBlockFormat.LineHeightTypes.ProportionalHeight)
         cursor.mergeBlockFormat(block)
+        for combo_name in ("line_spacing", "docx_line_spacing"):
+            combo = getattr(self, combo_name, None)
+            if combo is None:
+                continue
+            text = f"{numeric:g}"
+            combo.blockSignals(True)
+            if combo.findText(text) < 0:
+                insert_at = max(0, combo.count() - 1)
+                combo.insertItem(insert_at, text)
+            combo.setCurrentText(text)
+            combo.blockSignals(False)
+
+    def _set_page_margin_mm(self, side: str, value_mm: int) -> None:
+        self._page_margins[side] = self._mm_to_px(value_mm)
+        self._apply_page_sheet_margins()
+        self._update_margin_summary()
+        self._queue_autosave()
+
+    def _set_page_margin(self, side: str, value: int) -> None:
+        self._set_page_margin_mm(side, value)
+
+    def _set_block_spacing(self, kind: str, value: float) -> None:
+        cursor = self.editor.textCursor()
+        block = cursor.blockFormat()
+        if kind == "before":
+            block.setTopMargin(float(value))
+        else:
+            block.setBottomMargin(float(value))
+        cursor.mergeBlockFormat(block)
+
+    def _set_indent_margin(self, side: str, value: float) -> None:
+        cursor = self.editor.textCursor()
+        block = cursor.blockFormat()
+        if side == "right":
+            block.setRightMargin(max(0.0, float(value)))
+        else:
+            block.setLeftMargin(max(0.0, float(value)))
+        cursor.mergeBlockFormat(block)
+
+    def _update_margin_summary(self) -> None:
+        if not hasattr(self, "margin_summary_label"):
+            return
+        left = self._px_to_mm(self._page_margins["left"])
+        top = self._px_to_mm(self._page_margins["top"])
+        right = self._px_to_mm(self._page_margins["right"])
+        bottom = self._px_to_mm(self._page_margins["bottom"])
+        summary = f"{left}/{top}/{right}/{bottom} mm"
+        self.margin_summary_label.setText(summary)
+        self.margin_summary_label.setToolTip(
+            self._tooltip_html("当前页边距", f"左 {left} mm  ·  上 {top} mm  ·  右 {right} mm  ·  下 {bottom} mm")
+        )
+
+    def _toggle_inspector(self) -> None:
+        visible = not self.inspector.isVisible()
+        self.inspector.setVisible(visible)
 
     def _apply_list(self, numbered: bool) -> None:
         cursor = self.editor.textCursor()
@@ -934,3 +1377,6 @@ class WriterWindow(QMainWindow):
             if self._dirty:
                 self._autosave()
             self.launch_linked_latex(self.descriptor.document_id)
+
+    def _docx_cache_path(self) -> Path:
+        return Path(str(self.descriptor.path) + ".coyin.html")
