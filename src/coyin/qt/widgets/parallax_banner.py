@@ -22,8 +22,8 @@ class BannerPreset:
 
 BANNER_PRESETS: tuple[BannerPreset, ...] = (
     BannerPreset("preset_academic", "浅蓝学术科技风", "浅蓝渐变、论文线条、节点与几何光斑"),
-    BannerPreset("preset_graph", "深蓝知识图谱风", "深蓝图谱节点、连接曲线与微光装饰"),
-    BannerPreset("preset_warm", "暖色纸张书桌风", "米白纸张、书页边缘与温和光影"),
+    BannerPreset("preset_graph", "夜间赛博城市", "动漫风夜间都市、霓虹高楼与近景栏杆层次"),
+    BannerPreset("preset_warm", "黄昏校园", "治愈系黄昏天空、校园轮廓、树影与窗框前景"),
     BannerPreset("preset_glass", "极简玻璃空间风", "灰蓝渐变、玻璃块与高光线条"),
 )
 
@@ -184,43 +184,67 @@ def _preset_graph_layers() -> dict[str, str]:
             """
             <defs>
               <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#0d1a27"/>
-                <stop offset="48%" stop-color="#143251"/>
-                <stop offset="100%" stop-color="#1e5a87"/>
+                <stop offset="0%" stop-color="#0a1220"/>
+                <stop offset="44%" stop-color="#101c34"/>
+                <stop offset="76%" stop-color="#17355d"/>
+                <stop offset="100%" stop-color="#1c4c7c"/>
               </linearGradient>
-              <radialGradient id="glow" cx="82%" cy="20%" r="62%">
-                <stop offset="0%" stop-color="#5a92c0" stop-opacity="0.62"/>
-                <stop offset="100%" stop-color="#3f6f97" stop-opacity="0"/>
+              <radialGradient id="moonGlow" cx="78%" cy="18%" r="26%">
+                <stop offset="0%" stop-color="#dff2ff" stop-opacity="0.70"/>
+                <stop offset="100%" stop-color="#dff2ff" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="haze" cx="64%" cy="70%" r="58%">
+                <stop offset="0%" stop-color="#3d78aa" stop-opacity="0.26"/>
+                <stop offset="100%" stop-color="#3d78aa" stop-opacity="0"/>
               </radialGradient>
             </defs>
             <rect width="1600" height="240" fill="url(#bg)"/>
-            <rect width="1600" height="240" fill="url(#glow)"/>
-            <path d="M0 196C146 166 314 144 486 152C706 164 844 228 1084 224C1258 220 1432 188 1600 148V240H0Z" fill="#163a58" fill-opacity="0.94"/>
-            <path d="M0 212C180 194 338 186 512 190C720 194 874 224 1106 222C1302 220 1452 198 1600 178V240H0Z" fill="#1f4b6e" fill-opacity="0.74"/>
+            <circle cx="1244" cy="56" r="26" fill="#dff1ff" fill-opacity="0.76"/>
+            <rect width="1600" height="240" fill="url(#moonGlow)"/>
+            <rect width="1600" height="240" fill="url(#haze)"/>
+            <path d="M0 152C122 138 258 136 402 142C588 150 718 182 888 182C1098 182 1268 144 1600 100V240H0Z" fill="#0d1730" fill-opacity="0.70"/>
+            <path d="M0 196C146 166 314 144 486 152C706 164 844 228 1084 224C1258 220 1432 188 1600 148V240H0Z" fill="#142f4d" fill-opacity="0.94"/>
+            <path d="M0 212C180 194 338 186 512 190C720 194 874 224 1106 222C1302 220 1452 198 1600 178V240H0Z" fill="#1d476b" fill-opacity="0.78"/>
+            <g fill="#aacff3" fill-opacity="0.28">
+              <circle cx="184" cy="52" r="2"/>
+              <circle cx="252" cy="74" r="1.8"/>
+              <circle cx="336" cy="58" r="2.2"/>
+              <circle cx="418" cy="78" r="1.6"/>
+              <circle cx="1468" cy="48" r="1.8"/>
+              <circle cx="1524" cy="72" r="2.1"/>
+            </g>
             """
         ),
         "midground": _svg_document(
             """
-            <g fill="none" stroke="#8dc1ec" stroke-opacity="0.58" stroke-width="1.8">
-              <path d="M102 148L226 82L362 126L490 68L648 104L786 52L970 92L1128 50L1270 104L1406 84L1520 126"/>
-              <path d="M92 96L212 132L344 66L492 124L650 84L790 136L944 72L1110 126L1268 80L1442 112"/>
-              <path d="M214 44L278 198"/>
-              <path d="M544 40L592 198"/>
-              <path d="M846 34L932 204"/>
-              <path d="M1178 42L1260 206"/>
+            <g fill="#102542">
+              <path d="M0 186L0 134L64 134L64 116L104 116L104 152L148 152L148 88L198 88L198 124L248 124L248 98L296 98L296 142L346 142L346 110L392 110L392 160L438 160L438 82L486 82L486 152L532 152L532 104L584 104L584 140L636 140L636 74L690 74L690 152L742 152L742 120L786 120L786 150L840 150L840 94L904 94L904 156L962 156L962 108L1020 108L1020 144L1088 144L1088 86L1144 86L1144 150L1212 150L1212 98L1274 98L1274 138L1334 138L1334 78L1408 78L1408 146L1482 146L1482 104L1546 104L1546 136L1600 136L1600 186Z"/>
             </g>
-            <g fill="#b2dcff" fill-opacity="0.78">
-              <circle cx="102" cy="148" r="8"/>
-              <circle cx="226" cy="82" r="7"/>
-              <circle cx="362" cy="126" r="6"/>
-              <circle cx="490" cy="68" r="9"/>
-              <circle cx="648" cy="104" r="7"/>
-              <circle cx="786" cy="52" r="8"/>
-              <circle cx="970" cy="92" r="8"/>
-              <circle cx="1128" cy="50" r="10"/>
-              <circle cx="1270" cy="104" r="7"/>
-              <circle cx="1406" cy="84" r="8"/>
-              <circle cx="1520" cy="126" r="7"/>
+            <g fill="#8fc9ff" fill-opacity="0.58">
+              <rect x="84" y="128" width="8" height="12"/><rect x="96" y="128" width="8" height="12"/><rect x="84" y="144" width="20" height="10"/>
+              <rect x="176" y="102" width="8" height="12"/><rect x="188" y="102" width="8" height="12"/><rect x="176" y="118" width="20" height="10"/>
+              <rect x="456" y="96" width="8" height="12"/><rect x="468" y="96" width="8" height="12"/><rect x="456" y="112" width="20" height="10"/>
+              <rect x="660" y="88" width="10" height="14"/><rect x="674" y="88" width="10" height="14"/><rect x="660" y="108" width="24" height="12"/>
+              <rect x="872" y="106" width="8" height="12"/><rect x="884" y="106" width="8" height="12"/><rect x="872" y="122" width="20" height="10"/>
+              <rect x="1112" y="100" width="8" height="12"/><rect x="1124" y="100" width="8" height="12"/><rect x="1112" y="116" width="20" height="10"/>
+              <rect x="1366" y="90" width="10" height="14"/><rect x="1380" y="90" width="10" height="14"/><rect x="1366" y="110" width="24" height="12"/>
+            </g>
+            <g fill="none" stroke="#6db4ea" stroke-opacity="0.62" stroke-width="2.0">
+              <path d="M48 172C188 164 314 164 436 170C588 178 708 188 870 186C1042 184 1188 168 1398 150C1470 144 1538 140 1600 136"/>
+              <path d="M122 92C228 124 320 138 438 144C570 150 682 142 818 124C960 104 1108 86 1262 88C1404 90 1498 104 1600 126"/>
+              <path d="M210 48L202 220"/>
+              <path d="M434 34L438 218"/>
+              <path d="M676 40L672 222"/>
+              <path d="M926 26L930 220"/>
+              <path d="M1188 34L1180 218"/>
+              <path d="M1450 42L1454 220"/>
+            </g>
+            <g fill="#9ed2ff" fill-opacity="0.66">
+              <circle cx="208" cy="92" r="6"/>
+              <circle cx="436" cy="144" r="5"/>
+              <circle cx="818" cy="124" r="6"/>
+              <circle cx="1188" cy="88" r="7"/>
+              <circle cx="1452" cy="104" r="5"/>
             </g>
             """
         ),
@@ -228,36 +252,55 @@ def _preset_graph_layers() -> dict[str, str]:
             """
             <defs>
               <radialGradient id="soft" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#9fd0f8" stop-opacity="0.84"/>
+                <stop offset="0%" stop-color="#8dcfff" stop-opacity="0.70"/>
                 <stop offset="100%" stop-color="#9fcdf2" stop-opacity="0"/>
               </radialGradient>
             </defs>
-            <circle cx="1342" cy="78" r="72" fill="url(#soft)"/>
-            <circle cx="1186" cy="54" r="34" fill="url(#soft)"/>
-            <circle cx="302" cy="58" r="30" fill="url(#soft)"/>
-            <path d="M992 152C1082 132 1176 138 1274 166" fill="none" stroke="#c3e6ff" stroke-opacity="0.72" stroke-width="2.8"/>
-            <path d="M166 142C262 122 360 128 468 164" fill="none" stroke="#c3e6ff" stroke-opacity="0.58" stroke-width="2.4"/>
-            <rect x="1088" y="112" width="176" height="44" rx="20" fill="#8dbfe6" fill-opacity="0.22" stroke="#d8f0ff" stroke-opacity="0.46"/>
+            <circle cx="1326" cy="80" r="84" fill="url(#soft)"/>
+            <circle cx="1168" cy="52" r="42" fill="url(#soft)"/>
+            <circle cx="262" cy="58" r="34" fill="url(#soft)"/>
+            <g fill="none" stroke="#0b1a2d" stroke-opacity="0.94" stroke-width="4.2" stroke-linecap="round">
+              <path d="M0 174H1600"/>
+              <path d="M0 190H1600"/>
+              <path d="M84 88V240"/>
+              <path d="M224 104V240"/>
+              <path d="M444 82V240"/>
+              <path d="M656 98V240"/>
+              <path d="M936 80V240"/>
+              <path d="M1218 96V240"/>
+              <path d="M1428 72V240"/>
+            </g>
+            <g fill="none" stroke="#132b4a" stroke-opacity="0.92" stroke-width="2.2">
+              <path d="M84 88L142 66L224 104L284 76L362 96L444 82"/>
+              <path d="M936 80L1018 60L1112 84L1218 96L1316 70L1428 72"/>
+            </g>
+            <rect x="34" y="160" width="248" height="18" rx="9" fill="#07111d" fill-opacity="0.78"/>
+            <rect x="992" y="152" width="238" height="20" rx="10" fill="#07111d" fill-opacity="0.76"/>
             """
         ),
         "overlay": _svg_document(
             """
             <defs>
               <linearGradient id="topMask" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
                 <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="bottomMask" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#07111d" stop-opacity="0.00"/>
+                <stop offset="100%" stop-color="#07111d" stop-opacity="0.34"/>
               </linearGradient>
             </defs>
             <rect width="1600" height="82" fill="url(#topMask)"/>
-            <g fill="#d7efff" fill-opacity="0.62">
+            <rect y="158" width="1600" height="82" fill="url(#bottomMask)"/>
+            <g fill="#d7efff" fill-opacity="0.54">
               <circle cx="1226" cy="58" r="5"/>
               <circle cx="1282" cy="70" r="4"/>
               <circle cx="1362" cy="94" r="5"/>
               <circle cx="1428" cy="80" r="4"/>
               <circle cx="256" cy="72" r="4"/>
             </g>
-            <path d="M1120 32H1460" stroke="#dbf2ff" stroke-opacity="0.46" stroke-width="1.6"/>
-            <path d="M1108 166H1472" stroke="#dbf2ff" stroke-opacity="0.30" stroke-width="1.4"/>
+            <path d="M1092 30H1468" stroke="#dbf2ff" stroke-opacity="0.36" stroke-width="1.4"/>
+            <path d="M1108 162H1472" stroke="#80c8ff" stroke-opacity="0.18" stroke-width="1.2"/>
             """
         ),
     }
@@ -269,38 +312,42 @@ def _preset_warm_layers() -> dict[str, str]:
             """
             <defs>
               <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#fff5e3"/>
-                <stop offset="56%" stop-color="#f1ddb6"/>
-                <stop offset="100%" stop-color="#d7b178"/>
+                <stop offset="0%" stop-color="#f6c58a"/>
+                <stop offset="38%" stop-color="#f5d8a6"/>
+                <stop offset="68%" stop-color="#c9d7ea"/>
+                <stop offset="100%" stop-color="#7ea0c8"/>
               </linearGradient>
-              <radialGradient id="light" cx="78%" cy="16%" r="54%">
-                <stop offset="0%" stop-color="#fff9f0" stop-opacity="0.96"/>
+              <radialGradient id="light" cx="76%" cy="18%" r="56%">
+                <stop offset="0%" stop-color="#fff3d7" stop-opacity="0.94"/>
                 <stop offset="100%" stop-color="#fff9f0" stop-opacity="0"/>
               </radialGradient>
             </defs>
             <rect width="1600" height="240" fill="url(#bg)"/>
             <rect width="1600" height="240" fill="url(#light)"/>
-            <path d="M0 182C138 166 276 160 444 166C632 172 760 208 964 210C1180 212 1360 172 1600 126V240H0Z" fill="#edd7ad" fill-opacity="0.94"/>
-            <path d="M0 210C184 196 352 190 544 194C742 198 910 220 1122 220C1298 220 1446 206 1600 184V240H0Z" fill="#e1c38f" fill-opacity="0.78"/>
+            <path d="M0 132C164 118 324 120 502 138C678 156 822 176 1014 170C1220 164 1380 132 1600 90V240H0Z" fill="#e7b77f" fill-opacity="0.42"/>
+            <path d="M0 182C138 166 276 160 444 166C632 172 760 208 964 210C1180 212 1360 172 1600 126V240H0Z" fill="#d7b07e" fill-opacity="0.88"/>
+            <path d="M0 210C184 196 352 190 544 194C742 198 910 220 1122 220C1298 220 1446 206 1600 184V240H0Z" fill="#9aaed0" fill-opacity="0.38"/>
             """
         ),
         "midground": _svg_document(
             """
-            <g fill="none" stroke="#b88f57" stroke-opacity="0.40" stroke-width="1.6">
-              <path d="M96 84H1498"/>
-              <path d="M126 116H1468"/>
-              <path d="M154 148H1438"/>
-              <path d="M184 178H1408"/>
+            <g fill="#4f5f75" fill-opacity="0.92">
+              <path d="M0 186L0 150L132 150L132 114L278 114L278 168L418 168L418 126L604 126L604 176L794 176L794 106L984 106L984 164L1178 164L1178 118L1362 118L1362 176L1600 176L1600 240L0 240Z"/>
+              <path d="M112 146L196 76L252 76L336 146Z"/>
+              <path d="M908 138L996 68L1062 68L1150 138Z"/>
             </g>
-            <g fill="#ead7b3" fill-opacity="0.72">
-              <path d="M82 34H246V212H82Z"/>
-              <path d="M1242 26H1494V206H1242Z"/>
+            <g fill="#f4dfa8" fill-opacity="0.28">
+              <rect x="170" y="132" width="14" height="18"/><rect x="194" y="132" width="14" height="18"/><rect x="218" y="132" width="14" height="18"/>
+              <rect x="962" y="122" width="14" height="18"/><rect x="986" y="122" width="14" height="18"/><rect x="1010" y="122" width="14" height="18"/>
+              <rect x="1246" y="136" width="12" height="16"/><rect x="1266" y="136" width="12" height="16"/><rect x="1286" y="136" width="12" height="16"/>
             </g>
-            <g fill="none" stroke="#a9783d" stroke-opacity="0.34" stroke-width="2.4">
-              <path d="M102 34V210"/>
-              <path d="M1426 26V204"/>
-              <path d="M164 46C234 72 286 104 334 148"/>
-              <path d="M1302 42C1384 72 1440 106 1490 150"/>
+            <g fill="#506b50" fill-opacity="0.86">
+              <circle cx="532" cy="138" r="34"/>
+              <circle cx="574" cy="142" r="30"/>
+              <circle cx="614" cy="144" r="28"/>
+              <circle cx="1412" cy="148" r="34"/>
+              <circle cx="1456" cy="150" r="30"/>
+              <circle cx="1490" cy="154" r="24"/>
             </g>
             """
         ),
@@ -308,33 +355,57 @@ def _preset_warm_layers() -> dict[str, str]:
             """
             <defs>
               <radialGradient id="soft" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#fff1d2" stop-opacity="0.92"/>
+                <stop offset="0%" stop-color="#ffe5b3" stop-opacity="0.82"/>
                 <stop offset="100%" stop-color="#fff4de" stop-opacity="0"/>
               </radialGradient>
             </defs>
-            <circle cx="1288" cy="70" r="74" fill="url(#soft)"/>
-            <circle cx="118" cy="60" r="48" fill="url(#soft)"/>
-            <path d="M1212 48C1278 54 1342 84 1406 138" fill="none" stroke="#fff1cf" stroke-opacity="0.72" stroke-width="2.8"/>
-            <path d="M202 62C274 74 342 108 408 160" fill="none" stroke="#fde7bf" stroke-opacity="0.64" stroke-width="2.6"/>
-            <rect x="1084" y="96" width="168" height="34" rx="18" fill="#fff5df" fill-opacity="0.24" stroke="#fff8ec" stroke-opacity="0.42"/>
+            <circle cx="1278" cy="74" r="78" fill="url(#soft)"/>
+            <circle cx="118" cy="62" r="52" fill="url(#soft)"/>
+            <g fill="none" stroke="#4a5568" stroke-opacity="0.96" stroke-width="5.2" stroke-linecap="round">
+              <path d="M52 102V240"/>
+              <path d="M112 88V240"/>
+              <path d="M0 194H278"/>
+              <path d="M0 210H278"/>
+              <path d="M1240 118V240"/>
+              <path d="M1328 94V240"/>
+              <path d="M1408 106V240"/>
+              <path d="M1204 198H1600"/>
+              <path d="M1204 214H1600"/>
+            </g>
+            <g fill="none" stroke="#ba8a63" stroke-opacity="0.56" stroke-width="2.6">
+              <path d="M32 84C82 68 122 72 166 96C202 116 232 150 264 188"/>
+              <path d="M1180 90C1244 70 1318 74 1394 108C1458 136 1510 168 1562 214"/>
+            </g>
+            <g fill="#efc4a1" fill-opacity="0.56">
+              <circle cx="176" cy="134" r="4"/>
+              <circle cx="212" cy="154" r="3"/>
+              <circle cx="248" cy="170" r="4"/>
+              <circle cx="1324" cy="146" r="4"/>
+              <circle cx="1372" cy="164" r="3"/>
+            </g>
             """
         ),
         "overlay": _svg_document(
             """
             <defs>
               <linearGradient id="paperTop" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#fffaf1" stop-opacity="0.34"/>
+                <stop offset="0%" stop-color="#fff4dd" stop-opacity="0.32"/>
                 <stop offset="100%" stop-color="#fffaf1" stop-opacity="0.02"/>
+              </linearGradient>
+              <linearGradient id="bottomSoft" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#5e7091" stop-opacity="0.00"/>
+                <stop offset="100%" stop-color="#5e7091" stop-opacity="0.22"/>
               </linearGradient>
             </defs>
             <rect width="1600" height="84" fill="url(#paperTop)"/>
-            <g fill="#fffaf1" fill-opacity="0.58">
+            <rect y="164" width="1600" height="76" fill="url(#bottomSoft)"/>
+            <g fill="#fffaf1" fill-opacity="0.54">
               <circle cx="1312" cy="56" r="5"/>
               <circle cx="1364" cy="82" r="4"/>
               <circle cx="232" cy="54" r="5"/>
               <circle cx="282" cy="76" r="4"/>
             </g>
-            <path d="M0 0H1600V240H0Z" fill="none" stroke="#fff8ef" stroke-opacity="0.28" stroke-width="10"/>
+            <path d="M0 0H1600V240H0Z" fill="none" stroke="#fff8ef" stroke-opacity="0.18" stroke-width="8"/>
             """
         ),
     }

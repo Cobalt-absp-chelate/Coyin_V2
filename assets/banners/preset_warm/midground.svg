@@ -1,18 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="240" viewBox="0 0 1600 240">
-            <g fill="none" stroke="#b88f57" stroke-opacity="0.40" stroke-width="1.6">
-              <path d="M96 84H1498"/>
-              <path d="M126 116H1468"/>
-              <path d="M154 148H1438"/>
-              <path d="M184 178H1408"/>
+            <g fill="#4f5f75" fill-opacity="0.92">
+              <path d="M0 186L0 150L132 150L132 114L278 114L278 168L418 168L418 126L604 126L604 176L794 176L794 106L984 106L984 164L1178 164L1178 118L1362 118L1362 176L1600 176L1600 240L0 240Z"/>
+              <path d="M112 146L196 76L252 76L336 146Z"/>
+              <path d="M908 138L996 68L1062 68L1150 138Z"/>
             </g>
-            <g fill="#ead7b3" fill-opacity="0.72">
-              <path d="M82 34H246V212H82Z"/>
-              <path d="M1242 26H1494V206H1242Z"/>
+            <g fill="#f4dfa8" fill-opacity="0.28">
+              <rect x="170" y="132" width="14" height="18"/><rect x="194" y="132" width="14" height="18"/><rect x="218" y="132" width="14" height="18"/>
+              <rect x="962" y="122" width="14" height="18"/><rect x="986" y="122" width="14" height="18"/><rect x="1010" y="122" width="14" height="18"/>
+              <rect x="1246" y="136" width="12" height="16"/><rect x="1266" y="136" width="12" height="16"/><rect x="1286" y="136" width="12" height="16"/>
             </g>
-            <g fill="none" stroke="#a9783d" stroke-opacity="0.34" stroke-width="2.4">
-              <path d="M102 34V210"/>
-              <path d="M1426 26V204"/>
-              <path d="M164 46C234 72 286 104 334 148"/>
-              <path d="M1302 42C1384 72 1440 106 1490 150"/>
+            <g fill="#506b50" fill-opacity="0.86">
+              <circle cx="532" cy="138" r="34"/>
+              <circle cx="574" cy="142" r="30"/>
+              <circle cx="614" cy="144" r="28"/>
+              <circle cx="1412" cy="148" r="34"/>
+              <circle cx="1456" cy="150" r="30"/>
+              <circle cx="1490" cy="154" r="24"/>
             </g>
             </svg>

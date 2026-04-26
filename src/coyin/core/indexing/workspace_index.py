@@ -358,8 +358,8 @@ class WorkspaceIndexCore:
         banner_enabled = self.workspace.state.ui.banner_parallax_enabled
         preset_titles = {
             "preset_academic": "浅蓝学术科技风",
-            "preset_graph": "深蓝知识图谱风",
-            "preset_warm": "暖色纸张书桌风",
+            "preset_graph": "夜间赛博城市",
+            "preset_warm": "黄昏校园",
             "preset_glass": "极简玻璃空间风",
         }
         return [
