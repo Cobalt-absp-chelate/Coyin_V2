@@ -12,6 +12,8 @@ native/build/
 
 dist/
 build/
+release/
+tmp-*.png
 *.spec
 
 .idea/

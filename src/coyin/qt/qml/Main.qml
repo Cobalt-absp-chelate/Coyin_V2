@@ -26,6 +26,8 @@ ApplicationWindow {
     property int activePageIndex: shellState.currentIndex
     property int outgoingPageIndex: -1
     property int pageDirection: 1
+    readonly property int topChromeHeight: 142
+    readonly property int navBarHeight: 48
     readonly property bool bannerParallaxEnabled: controllerRef ? controllerRef.bannerParallaxEnabled : true
     readonly property string bannerPresetId: controllerRef ? controllerRef.bannerPresetId : "preset_academic"
     readonly property string bannerAssetRoot: controllerRef ? controllerRef.bannerAssetRoot : ""
@@ -177,8 +179,9 @@ ApplicationWindow {
 
         Item {
             id: topChrome
+            objectName: "topChrome"
             Layout.fillWidth: true
-            Layout.preferredHeight: 142
+            Layout.preferredHeight: root.topChromeHeight
             clip: true
 
             ParallaxBanner {
@@ -198,8 +201,10 @@ ApplicationWindow {
             }
 
             Rectangle {
+                id: topScrim
+                objectName: "topScrim"
                 anchors.fill: parent
-                color: root.theme.mode === "dark" ? Qt.rgba(0.03, 0.07, 0.11, 0.24) : "transparent"
+                color: root.theme.mode === "dark" ? Qt.rgba(0.03, 0.07, 0.11, 0.20) : Qt.rgba(1, 1, 1, 0.04)
             }
 
             HoverHandler {
@@ -216,30 +221,25 @@ ApplicationWindow {
                 }
             }
 
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 42
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: "transparent" }
-                    GradientStop { position: 1.0; color: root.theme.workspace }
-                }
-            }
-
-            ColumnLayout {
+            Item {
                 anchors.fill: parent
-                spacing: 0
+                anchors.leftMargin: 0
+                anchors.rightMargin: 0
 
                 Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 76
+                    id: topBar
+                    objectName: "topBar"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: navBar.top
                     color: root.theme.mode === "dark"
                         ? Qt.rgba(0.05, 0.09, 0.14, 0.42)
                         : Qt.rgba(1, 1, 1, 0.30)
                     border.color: root.theme.mode === "dark"
                         ? Qt.rgba(0.72, 0.84, 0.96, 0.12)
                         : Qt.rgba(1, 1, 1, 0.16)
+                    border.width: 0
 
                     RowLayout {
                         anchors.fill: parent
@@ -337,14 +337,19 @@ ApplicationWindow {
                 }
 
                 Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 48
+                    id: navBar
+                    objectName: "navBar"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: root.navBarHeight
                     color: root.theme.mode === "dark"
                         ? Qt.rgba(0.04, 0.08, 0.12, 0.30)
                         : Qt.rgba(1, 1, 1, 0.16)
                     border.color: root.theme.mode === "dark"
                         ? Qt.rgba(0.72, 0.84, 0.96, 0.10)
                         : Qt.rgba(1, 1, 1, 0.12)
+                    border.width: 0
 
                     RowLayout {
                         anchors.fill: parent
@@ -391,9 +396,12 @@ ApplicationWindow {
         }
 
         Rectangle {
+            id: contentArea
+            objectName: "contentArea"
             Layout.fillWidth: true
             Layout.fillHeight: true
             color: root.theme.workspace
+            clip: true
 
             Rectangle {
                 anchors.fill: parent
@@ -407,6 +415,7 @@ ApplicationWindow {
 
             Rectangle {
                 id: pageStageShadow
+                objectName: "pageStageShadow"
                 anchors.fill: pageStage
                 anchors.margins: -10
                 radius: pageStage.radius + 8
@@ -420,12 +429,19 @@ ApplicationWindow {
 
             Rectangle {
                 id: pageStage
-                anchors.fill: parent
-                anchors.margins: 16
+                objectName: "pageStage"
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                anchors.topMargin: 0
+                anchors.bottomMargin: 16
                 radius: 14
                 color: MotionCore.mixColor(root.theme.panel, root.theme.panelRaised, 0.64)
                 border.color: MotionCore.mixColor(root.theme.border, root.theme.accentOutline, 0.12)
-                border.width: 1
+                border.width: 0
                 y: (1.0 - root.pageReveal) * (root.theme.pageOffset + 6)
                 clip: true
 
@@ -445,28 +461,26 @@ ApplicationWindow {
 
                 Rectangle {
                     anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: MotionCore.mixColor(root.theme.border, root.theme.accentOutline, 0.12)
+                }
+
+                Rectangle {
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    height: 22
-                    color: root.theme.anchor
-                    opacity: 0.01 + (root.pagePulse ? 0.08 : 0.0) + (1.0 - root.pageReveal) * 0.08
-
-                    Behavior on opacity {
-                        NumberAnimation { duration: MotionCore.duration("page", root.theme); easing.type: Easing.OutCubic }
-                    }
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: MotionCore.mixColor(root.theme.border, root.theme.accentOutline, 0.12)
                 }
 
                 Rectangle {
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
                     height: 1
-                    color: root.theme.accentOutline
-                    opacity: 0.18 + (1.0 - root.pageReveal) * 0.28
-
-                    Behavior on opacity {
-                        NumberAnimation { duration: MotionCore.duration("page", root.theme); easing.type: Easing.OutCubic }
-                    }
+                    color: MotionCore.mixColor(root.theme.border, root.theme.accentOutline, 0.12)
                 }
 
                 SignalAccent {
